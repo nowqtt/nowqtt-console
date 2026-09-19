@@ -1,0 +1,11 @@
+# A plain multi-arch Python image rather than a Home Assistant base image.
+#
+# The HA bases are the documented path and bring bashio, which this add-on does
+# not use: it reads the Supervisor API directly in Python, because the MQTT
+# credentials are needed inside the server process and not in a shell wrapper.
+# Naming an image whose tag can be checked beats guessing at a base tag that
+# may not exist for every architecture.
+build_from:
+  amd64: python:3.12-alpine
+  aarch64: python:3.12-alpine
+  armv7: python:3.12-alpine

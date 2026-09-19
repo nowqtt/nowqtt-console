@@ -1,0 +1,65 @@
+# Home Assistant add-on manifest.
+#
+# Why an add-on rather than a hosted static page. A page served from an https
+# origin may not open a plain ws:// socket, and the broker's WebSocket listener
+# is plaintext -- so hosting the console publicly meant either TLS on the
+# broker or a per-browser insecure-content exception. Serving it from inside
+# Home Assistant removes the question instead of answering it: the page and its
+# MQTT socket are the same origin, because this add-on proxies the socket
+# itself.
+#
+# Three things follow from being an add-on that a static host could not do:
+# credentials come from the Supervisor rather than from a person typing them,
+# the page appears as a tab in the sidebar, and there is a writable volume to
+# keep long-term history in.
+name: nowqtt console
+version: "0.1.0"
+slug: nowqtt_console
+description: Technical console for the nowqtt ESP-NOW mesh -- topology, counters, configuration and firmware updates
+url: https://github.com/nowqtt/nowqtt-console
+arch:
+  - amd64
+  - aarch64
+  - armv7
+
+# The base image brings its own init, so Docker's must not be layered on top.
+init: false
+startup: application
+boot: auto
+
+# The whole point: Home Assistant proxies this on its own origin and shows it
+# as a sidebar tab. No published port, so nothing is reachable from the LAN
+# except through Home Assistant's own authentication.
+ingress: true
+ingress_port: 8099
+panel_icon: mdi:access-point-network
+panel_title: nowqtt
+
+# `want`, not `need`: the add-on installs and runs whether or not the Mosquitto
+# add-on is present. With it, the broker and its credentials are discovered
+# automatically; without it -- which is this fleet's case, the broker being a
+# plain mosquitto on another host -- the options below say where it is.
+services:
+  - mqtt:want
+
+# Read at startup to find the broker when the Supervisor cannot say.
+options:
+  topic_prefix: nowqtt
+  broker_host: ""
+  broker_port: 1883
+  broker_user: ""
+  broker_password: ""
+  record_raw: true
+  raw_days: 10
+  series_every: 60
+  series_days: 30
+schema:
+  topic_prefix: str
+  broker_host: str?
+  broker_port: port?
+  broker_user: str?
+  broker_password: password?
+  record_raw: bool
+  raw_days: int(1,365)
+  series_every: int(0,3600)
+  series_days: int(1,3650)
