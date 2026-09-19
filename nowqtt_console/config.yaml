@@ -13,7 +13,7 @@
 # the page appears as a tab in the sidebar, and there is a writable volume to
 # keep long-term history in.
 name: nowqtt console
-version: "0.1.0"
+version: "0.1.1"
 slug: nowqtt_console
 description: Technical console for the nowqtt ESP-NOW mesh -- topology, counters, configuration and firmware updates
 url: https://github.com/nowqtt/nowqtt-console
@@ -22,8 +22,11 @@ arch:
   - aarch64
   - armv7
 
-# The base image brings its own init, so Docker's must not be layered on top.
-init: false
+# The image is plain python:alpine with no init of its own, so Docker's tiny
+# init runs as PID 1: it forwards the Supervisor's stop signal to the server
+# and reaps anything that exits. (init: false was right for the HA base
+# images, which bring s6; this add-on no longer uses them -- see Dockerfile.)
+init: true
 startup: application
 boot: auto
 

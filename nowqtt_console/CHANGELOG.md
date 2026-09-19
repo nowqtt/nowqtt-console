@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.1
+
+- Fixes the install on current Home Assistant: the build failed with
+  `pip: not found`, because the Supervisor now passes its own Python-less base
+  image regardless of `build.yaml`. The Dockerfile pins `python:3.12-alpine`.
+- Docker's init runs as PID 1, since that image brings none of its own.
+
 ## 0.1.0
 
 First release. The console v2 packaged as an add-on.
