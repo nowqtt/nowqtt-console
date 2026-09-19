@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.0
+
+- New **Network** tab for the mesh-wide settings: move the whole mesh to
+  another Wi-Fi channel, rotate the mesh key, and open a join window for
+  devices flashed with the factory key. It shows the change as the gateway
+  runs it (who acknowledged, who did not, done/aborted/reverted), and which
+  channel and key epoch every device reports it is on, so a device that
+  missed a change shows up as one. Needs a gateway that publishes
+  `bridge/netcfg`.
+
 ## 0.1.1
 
 - Fixes the install on current Home Assistant: the build failed with

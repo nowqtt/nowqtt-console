@@ -18,7 +18,8 @@ var FILES = [
   'index.html',
   'css/app.css',
   'js/store.js', 'js/broker.js', 'js/model.js', 'js/topo.js', 'js/image.js',
-  'js/ota.js', 'js/config.js', 'js/map.js', 'js/ui.js', 'js/views.js',
+  'js/ota.js', 'js/config.js', 'js/netcfg.js', 'js/history.js', 'js/map.js',
+  'js/ui.js', 'js/views.js', 'js/network.js',
   'vendor/mqtt.min.js',
   'manifest.webmanifest'
 ];

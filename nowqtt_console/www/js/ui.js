@@ -131,7 +131,8 @@
 
   function schedule() {
     setInterval(function () {
-      if (!dirty) { renderConn(); return; }
+      /* The Network tab counts its windows down between status publishes. */
+      if (!dirty && view !== 'network') { renderConn(); return; }
       dirty = false;
       renderConn();
       try { render(); } catch (e) { console.error(e); }
@@ -149,6 +150,7 @@
     else if (view === 'gateway') NQ.views.gateway();
     else if (view === 'ota') NQ.views.otaTargets();
     else if (view === 'history') NQ.views.history();
+    else if (view === 'network') NQ.views.network();
   }
 
   function show(v) {

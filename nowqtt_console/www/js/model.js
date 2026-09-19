@@ -213,6 +213,20 @@
       g.gw = uid; gwUid = uid; touch(g, ts);
       var j = parseJson(text);
       if (!j) return { id: uid, kind: 'gateway' };
+      if (rest[1] === 'netcfg') {
+        /* The retained status, the result of each command, and this page's
+         * own command echoed back by the bridge/# subscription -- kept apart,
+         * because only the first two are the gateway speaking. */
+        if (rest.length === 2) g.netcfg = { doc: j, ts: ts };
+        else if (rest[2] === 'result') {
+          g.netcfgResults = g.netcfgResults || [];
+          g.netcfgResults.push({ doc: j, ts: ts });
+          if (g.netcfgResults.length > 20) g.netcfgResults.shift();
+        } else if (rest[2] === 'set') {
+          g.netcfgSent = { doc: j, ts: ts };
+        }
+        return { id: uid, kind: 'gateway' };
+      }
       if (rest[1] === 'stats') {
         g.topics['stats'] = { raw: text, ts: ts, json: j };
         var flat = flatten(j, '');

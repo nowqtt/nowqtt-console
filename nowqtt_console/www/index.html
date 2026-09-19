@@ -16,6 +16,7 @@
     <button data-view="map" class="on">Map</button>
     <button data-view="devices">Devices<span class="badge" id="badge-dev">0</span></button>
     <button data-view="ota">OTA</button>
+    <button data-view="network">Network</button>
     <button data-view="live">Live</button>
     <button data-view="history">History</button>
     <button data-view="soak">Soak</button>
@@ -160,6 +161,85 @@
     </div>
   </section>
 
+  <!-- ---------- network ------------------------------------------------ -->
+  <section class="view" data-view="network">
+    <div id="nc-tiles" class="tiles" style="max-width:1180px"></div>
+    <div id="nc-banner" style="max-width:1180px;margin-top:12px"></div>
+    <div class="grid" style="grid-template-columns:minmax(0,1fr) minmax(0,1fr);max-width:1180px;margin-top:14px">
+      <div>
+        <div class="panel">
+          <h2>Channel and key <span class="sub">every mains node votes</span></h2>
+          <div class="body">
+            <div class="row">
+              <label class="field">channel
+                <select id="nc-channel" style="width:130px"></select></label>
+              <label class="inline"><input type="checkbox" id="nc-rotate"> generate a new mesh key</label>
+            </div>
+            <details style="margin-top:10px">
+              <summary class="note">timing</summary>
+              <div class="row" style="margin-top:8px">
+                <label class="field">revert after, s
+                  <input id="nc-revert" type="number" value="120" min="30" max="3600" style="width:100px"></label>
+                <label class="field">old key kept, h
+                  <input id="nc-grace" type="number" value="24" min="1" max="720" style="width:100px"></label>
+              </div>
+              <p class="note" style="margin:8px 0 0">
+                <strong>Revert</strong>: how long a node that switched waits to hear
+                the gateway on the new record before it goes back.
+                <strong>Old key kept</strong>: how long a device that missed the
+                change can still be understood and told where the mesh went. After
+                that it needs a join window.
+              </p>
+            </details>
+            <div id="nc-preview" class="note" style="margin:12px 0"></div>
+            <div class="row">
+              <button class="btn primary" id="nc-propose" disabled>Propose change</button>
+              <span class="mono dim" id="nc-propose-stat"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>Join window <span class="sub">let in devices that have only the factory key</span></h2>
+          <div class="body">
+            <div class="row">
+              <label class="field">open for
+                <select id="nc-join-dur">
+                  <option value="300">5 min</option>
+                  <option value="900" selected>15 min</option>
+                  <option value="1800">30 min</option>
+                  <option value="3600">1 h</option>
+                </select></label>
+              <button class="btn primary" id="nc-join-open">Open</button>
+              <button class="btn" id="nc-join-close">Close</button>
+              <span class="mono ok" id="nc-join-left"></span>
+            </div>
+            <p class="note" style="margin:10px 0 0">
+              A device flashed from the repository has only the factory key from
+              <code>mesh_key.h</code>. Once the mesh has rotated its key, that key
+              opens nothing, except while a window is open: then the mesh answers
+              the device with the current channel and key. Power the new device on
+              while the window is open. A mains node joins within seconds, and a
+              sleeper on its next wake. Also use a window for a device shown as
+              <strong>stranded</strong> below.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="panel">
+          <h2>Progress <span class="sub">bridge/netcfg</span></h2>
+          <div class="body" id="nc-progress"></div>
+        </div>
+        <div class="panel">
+          <h2>Devices <span class="sub">the record each one reports</span></h2>
+          <div class="body tight"><table id="nc-table"></table></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- ---------- live ---------------------------------------------------- -->
   <section class="view flush" data-view="live">
     <div style="display:flex;flex-direction:column;height:100%">
@@ -259,9 +339,11 @@
 <script src="js/image.js"></script>
 <script src="js/ota.js"></script>
 <script src="js/config.js"></script>
+<script src="js/netcfg.js"></script>
 <script src="js/history.js"></script>
 <script src="js/map.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/views.js"></script>
+<script src="js/network.js"></script>
 </body>
 </html>
