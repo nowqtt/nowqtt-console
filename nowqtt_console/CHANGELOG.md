@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.0
+
+- **Keeps a backup of the mesh's network record.** Since the first key
+  rotation the mesh key exists only in the devices; a gateway that loses its
+  flash comes back on the factory key and no node listens to it. Whenever the
+  gateway settles on a new epoch, the add-on asks it for a copy and keeps it
+  in `/data/netcfg` (readable by the add-on only). The Network tab shows
+  whether the copy is current, downloads it, and restores it to a gateway
+  that is back on the factory record. Needs gateway firmware `fd51820` or later.
+- The raw recording no longer stores the backup, which carries the key. The
+  console never shows the key in its live feed or messages.
+
 ## 0.2.0
 
 - New **Network** tab for the mesh-wide settings: move the whole mesh to

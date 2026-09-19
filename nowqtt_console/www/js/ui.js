@@ -122,7 +122,12 @@
     dirty = true;
   });
 
+  /* Topics whose payload is never shown or kept in the feed: the network
+   * backup and a restore command both carry the mesh key. */
+  var SECRET = /\/bridge\/netcfg\/(export|set)$/;
+
   function pushFeed(topic, text, isErr) {
+    if (SECRET.test(topic) && /"key"/.test(String(text))) text = '(network record with its key; not shown)';
     feed.push({ t: Date.now() / 1000, topic: topic, text: text, err: isErr });
     if (feed.length > cfg.feedCap) feed.splice(0, feed.length - cfg.feedCap);
   }

@@ -225,6 +225,27 @@
             </p>
           </div>
         </div>
+
+        <div class="panel">
+          <h2>Backup <span class="sub">what a gateway needs if it loses its own record</span></h2>
+          <div class="body">
+            <div id="nc-backup-state"></div>
+            <div class="row" style="margin-top:10px">
+              <button class="btn" id="nc-backup-dl">Download backup</button>
+              <button class="btn danger" id="nc-restore-addon">Restore the add-on's backup</button>
+              <button class="btn danger" id="nc-restore-file">Restore from file…</button>
+              <input type="file" id="nc-restore-input" accept=".json,application/json" hidden>
+            </div>
+            <p class="note" style="margin:10px 0 0">
+              Since the first key rotation, the mesh key exists only in the
+              devices. A gateway whose flash is erased comes back on the factory
+              key, and every node ignores it. Restoring the newest backup puts it
+              back. The add-on keeps one automatically after every change. The
+              file holds the mesh key, so keep it like a password. A restore is
+              only accepted while the gateway is on the factory record.
+            </p>
+          </div>
+        </div>
       </div>
 
       <div>

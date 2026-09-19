@@ -15,6 +15,8 @@
   var touched = false;       /* the operator picked a channel; stop following the gateway's */
   var wired = false;
   var sentNote = null;       /* { kind, text } after a publish */
+  var addonBackups = null;   /* { uid: {epoch, channel, saved} } from the add-on, or null */
+  var addonAsked = 0;
 
   function gwUid() { return NQ.model.gwUid() || U.cfg().uid; }
   function topics() { return N.topics(U.cfg().prefix, gwUid()); }
@@ -46,8 +48,9 @@
   function publish(json, what) {
     var ok = NQ.broker.publish(topics().set, json, { qos: 1, retain: false }, function (err) {
       sentNote = err ? { kind: 'bad', text: what + ' not sent: ' + (err.message || err) }
-                     : { kind: 'info', text: what + ' sent: ' + json + '. The gateway ' +
-                                                'answers on bridge/netcfg/result.' };
+                     : { kind: 'info', text: what + ' sent' +
+                                         (/"key"/.test(json) ? '' : ': ' + json) +
+                                         '. The gateway answers on bridge/netcfg/result.' };
       U.markDirty();
     });
     if (!ok) { sentNote = { kind: 'bad', text: 'Not connected to the broker.' }; U.markDirty(); }
@@ -93,6 +96,127 @@
     $('#nc-join-close').addEventListener('click', function () {
       publish(N.joinRequest(0).json, 'Join window close');
     });
+
+    $('#nc-backup-dl').addEventListener('click', download);
+    $('#nc-restore-addon').addEventListener('click', function () {
+      fetch('api/netcfg/backup/' + encodeURIComponent(gwUid()), { cache: 'no-store' })
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function (doc) { restore(doc, 'the add-on\'s backup'); })
+        .catch(function (e) { sentNote = { kind: 'bad', text: 'Backup not fetched: ' + e.message }; U.markDirty(); });
+    });
+    $('#nc-restore-file').addEventListener('click', function () { $('#nc-restore-input').click(); });
+    $('#nc-restore-input').addEventListener('change', function (e) {
+      var f = e.target.files && e.target.files[0];
+      if (!f) return;
+      f.text().then(function (txt) {
+        var doc = null;
+        try { doc = JSON.parse(txt); } catch (err) { doc = null; }
+        restore(doc, f.name);
+      });
+      e.target.value = '';
+    });
+  }
+
+  /* ---- backup ------------------------------------------------------ */
+
+  function refreshAddonBackups(force) {
+    if (!NQ.store.managed()) return;
+    var now = Date.now();
+    if (!force && now - addonAsked < 60000) return;
+    addonAsked = now;
+    fetch('api/netcfg/backups', { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) { addonBackups = j && j.backups ? j.backups : {}; U.markDirty(); })
+      .catch(function () { });
+  }
+
+  function saveFile(doc) {
+    var name = 'nowqtt-network-' + (doc.uid || gwUid()) + '-epoch' + doc.epoch + '.json';
+    var blob = new Blob([JSON.stringify(doc, null, 2) + '\n'], { type: 'application/json' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    sentNote = { kind: 'info', text: 'Saved ' + name + '. It holds the mesh key: keep it like a password.' };
+    U.markDirty();
+  }
+
+  /* From the add-on when it has the current epoch; otherwise straight from
+   * the gateway, which answers once on bridge/netcfg/export. */
+  function download() {
+    var cur = status();
+    var st = cur ? cur.doc : null;
+    var mine = addonBackups && addonBackups[gwUid()];
+    if (mine && st && mine.epoch === st.epoch) {
+      fetch('api/netcfg/backup/' + encodeURIComponent(gwUid()), { cache: 'no-store' })
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(saveFile)
+        .catch(function (e) { sentNote = { kind: 'bad', text: 'Backup not fetched: ' + e.message }; U.markDirty(); });
+      return;
+    }
+    var g = NQ.model.gateway();
+    if (g) g.netcfgExport = null;
+    var asked = Date.now() / 1000;
+    publish(JSON.stringify({ export: true }), 'Backup request');
+    var tries = 0;
+    var t = setInterval(function () {
+      var gg = NQ.model.gateway();
+      var ex = gg && gg.netcfgExport;
+      if (ex && ex.ts >= asked - 1) {
+        clearInterval(t);
+        var doc = Object.assign({ uid: gwUid(), saved: Math.round(Date.now() / 1000) }, ex.doc);
+        gg.netcfgExport = null;          /* in memory only as long as it takes */
+        saveFile(doc);
+      } else if (++tries > 20) {
+        clearInterval(t);
+        sentNote = { kind: 'bad', text: 'The gateway did not answer with a backup in 10 s.' };
+        U.markDirty();
+      }
+    }, 500);
+  }
+
+  function restore(doc, from) {
+    var r = N.restoreRequest(doc);
+    if (!r.ok) { sentNote = { kind: 'bad', text: 'Cannot restore ' + from + ': ' + r.why + '.' }; U.markDirty(); return; }
+    if (!window.confirm('Put epoch ' + doc.epoch + ' (channel ' + doc.channel + ') back on the gateway?\n\n' +
+                        'Only do this with the NEWEST backup: the nodes do not follow a gateway ' +
+                        'backwards, so an older one leaves them where they are.')) return;
+    publish(r.json, 'Restore of epoch ' + doc.epoch);
+  }
+
+  function renderBackup(st) {
+    var box = clear($('#nc-backup-state'));
+    var mine = addonBackups ? addonBackups[gwUid()] || null : null;
+    var state = N.backupState(st, mine);
+    var managed = !!NQ.store.managed();
+    var saved = mine && mine.saved ? ' (saved ' + ago(mine.saved) + ')' : '';
+    if (!managed) {
+      box.appendChild(h('div', { class: 'note', text: 'Opened outside the add-on, so nothing is ' +
+        'backed up automatically. Download a backup after every change.' }));
+    } else if (state === 'current') {
+      box.appendChild(U.banner('info', 'The add-on holds a backup of epoch ' + mine.epoch + saved +
+        ', the one the mesh runs.'));
+    } else if (state === 'stale') {
+      box.appendChild(U.banner('warn', 'The add-on\'s backup is of epoch ' + mine.epoch + saved +
+        ', but the mesh runs epoch ' + st.epoch + '. It asks the gateway for a new one within a minute of a change.'));
+    } else if (state === 'none') {
+      box.appendChild(U.banner('warn', 'The add-on holds no backup yet. It asks the gateway for one ' +
+        'within a minute; the gateway firmware has to support it.'));
+    }
+    if (st && st.epoch === 0) {
+      box.appendChild(U.banner(state === 'needed' ? 'bad' : 'warn',
+        'The gateway is on the factory record (epoch 0). If the mesh has rotated its key, this ' +
+        'gateway has lost it and no node will listen to it. ' +
+        (state === 'needed' ? 'Restore the add-on\'s backup of epoch ' + mine.epoch + '.'
+                            : 'Restore from your newest backup file.')));
+    }
+    var onFactory = !!(st && st.epoch === 0);
+    $('#nc-backup-dl').disabled = !st || onFactory || !NQ.broker.up();
+    $('#nc-restore-addon').style.display = managed ? '' : 'none';
+    $('#nc-restore-addon').disabled = !(onFactory && mine) || !NQ.broker.up();
+    $('#nc-restore-file').disabled = !onFactory || !NQ.broker.up();
   }
 
   function preview() {
@@ -255,6 +379,8 @@
       ? 'open, ' + dur(N.left(st.join_s, cur.ts, now)) + ' left' : '';
     $('#nc-propose-stat').textContent = busy ? 'change ' + st.state + '…' : '';
 
+    refreshAddonBackups(false);
+    renderBackup(st);
     preview();
     if (g) progress(g, cur); else clear($('#nc-progress'));
     table(rows);

@@ -223,7 +223,13 @@
           g.netcfgResults.push({ doc: j, ts: ts });
           if (g.netcfgResults.length > 20) g.netcfgResults.shift();
         } else if (rest[2] === 'set') {
-          g.netcfgSent = { doc: j, ts: ts };
+          /* Our own command, echoed. A restore carries the key; keep only
+           * what it was, not what was in it. */
+          g.netcfgSent = { doc: j.restore ? { restore: { epoch: j.restore.epoch } } : j, ts: ts };
+        } else if (rest[2] === 'export') {
+          /* The backup, key included. In memory only and only until the page
+           * has saved it: see network.js. */
+          g.netcfgExport = { doc: j, ts: ts };
         }
         return { id: uid, kind: 'gateway' };
       }

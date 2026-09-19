@@ -123,6 +123,7 @@ class Recorder:
         self.last_message = 0.0
         self.client: mqtt.Client | None = None
         self._stop = threading.Event()
+        self.backup = None          # netbackup.NetBackup, attached by app.py
 
     # ---- mqtt --------------------------------------------------------
 
@@ -143,6 +144,8 @@ class Recorder:
         # recorder silently recorded nothing after a broker restart.
         for f in self.filters():
             client.subscribe(f, qos=0)
+        if self.backup is not None:
+            self.backup.client = client
 
     def _on_disconnect(self, *args):
         self.connected = False
@@ -156,6 +159,16 @@ class Recorder:
             payload = msg.payload.decode("utf-8", "replace")
         except Exception:
             return
+
+        # The network backup carries the mesh key: kept by netbackup.py in its
+        # own 0600 file, never in the raw log, which is kept for days and is
+        # what gets copied off for analysis.
+        if msg.topic.endswith("/bridge/netcfg/export"):
+            if self.backup is not None:
+                self.backup.on_export(msg.topic, payload)
+            return
+        if self.backup is not None and msg.topic.endswith("/bridge/netcfg"):
+            self.backup.on_status(msg.topic, payload)
 
         if self.raw is not None:
             self.raw.write(json.dumps({

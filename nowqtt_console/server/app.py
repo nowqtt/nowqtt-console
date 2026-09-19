@@ -20,6 +20,7 @@ from aiohttp import web
 
 from . import config as cfgmod
 from . import mqttws
+from .netbackup import NetBackup
 from .recorder import Recorder
 from .store import SeriesStore
 
@@ -105,6 +106,25 @@ async def api_history(request: web.Request) -> web.Response:
         limit=max(1, min(20000, num("limit", 2000)))))
 
 
+async def api_netcfg_backups(request: web.Request) -> web.Response:
+    """Which gateways have a backup, and of which epoch. No key in here."""
+    nb: NetBackup = request.app["netbackup"]
+    return web.json_response({"backups": nb.status()})
+
+
+async def api_netcfg_backup(request: web.Request) -> web.Response:
+    """The whole backup, key included, for the console's download and restore.
+
+    Only reachable through Home Assistant's ingress, which is Home Assistant's
+    own login: the add-on publishes no port. Not cached anywhere.
+    """
+    nb: NetBackup = request.app["netbackup"]
+    doc = nb.latest(request.match_info["uid"])
+    if doc is None:
+        raise web.HTTPNotFound(text="no backup for that gateway")
+    return web.json_response(doc, headers={"Cache-Control": "no-store"})
+
+
 async def index(request: web.Request) -> web.StreamResponse:
     path = os.path.join(WWW, "index.html")
     if not os.path.exists(path):
@@ -125,11 +145,15 @@ def build_app() -> web.Application:
                         record_raw=bool(opts["record_raw"]),
                         raw_days=int(opts["raw_days"]))
 
+    netbackup = NetBackup(DATA, opts["topic_prefix"])
+    recorder.backup = netbackup
+
     app = web.Application()
     app["mqtt"] = broker
     app["prefix"] = opts["topic_prefix"]
     app["store"] = store
     app["recorder"] = recorder
+    app["netbackup"] = netbackup
 
     app.router.add_get("/api/health", health)
     app.router.add_get("/api/config", api_config)
@@ -137,6 +161,8 @@ def build_app() -> web.Application:
     app.router.add_get("/api/history/devices", api_devices)
     app.router.add_get("/api/history/series", api_series)
     app.router.add_get("/api/history", api_history)
+    app.router.add_get("/api/netcfg/backups", api_netcfg_backups)
+    app.router.add_get("/api/netcfg/backup/{uid}", api_netcfg_backup)
     app.router.add_get("/mqtt", mqttws.handler)
     app.router.add_get("/", index)
     if os.path.isdir(WWW):

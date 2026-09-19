@@ -156,7 +156,45 @@
     return txt;
   }
 
+  /* A backup file, or the add-on's copy, turned into the restore command --
+   * or a reason it cannot be one. The gateway checks all of this again; this
+   * is so a wrong file is named here rather than coming back as INVALID_ARG. */
+  function restoreRequest(doc) {
+    if (!doc || typeof doc !== 'object') return { ok: false, why: 'not a backup file' };
+    if (!Number.isInteger(doc.epoch) || doc.epoch < 1 || doc.epoch > 255) {
+      return { ok: false, why: 'no usable epoch in it' };
+    }
+    if (!Number.isInteger(doc.channel) || doc.channel < 1 || doc.channel > 13) {
+      return { ok: false, why: 'no usable channel in it' };
+    }
+    if (typeof doc.key !== 'string' || !/^[0-9a-f]{64}$/.test(doc.key)) {
+      return { ok: false, why: 'no usable key in it' };
+    }
+    var r = { epoch: doc.epoch, channel: doc.channel, key: doc.key };
+    if (Number.isInteger(doc.revert_s)) r.revert_s = doc.revert_s;
+    if (Number.isInteger(doc.grace_s)) r.grace_s = doc.grace_s;
+    return { ok: true, body: { restore: r }, json: JSON.stringify({ restore: r }) };
+  }
+
+  /* Is the backup we hold the one that would put this gateway back?
+   *
+   *   current   same epoch as the gateway runs
+   *   stale     an older epoch: restoring it would not reach the nodes
+   *   none      nothing held
+   *   needed    the gateway is on the factory record and we hold one: this is
+   *             the moment the backup exists for */
+  function backupState(st, backup) {
+    if (!backup || typeof backup.epoch !== 'number') {
+      return st && st.epoch === 0 ? 'lost' : 'none';
+    }
+    if (!st) return 'unknown';
+    if (st.epoch === 0) return 'needed';
+    return backup.epoch === st.epoch ? 'current' : 'stale';
+  }
+
   NQ.netcfg = {
+    restoreRequest: restoreRequest,
+    backupState: backupState,
     topics: topics,
     busy: busy,
     left: left,
