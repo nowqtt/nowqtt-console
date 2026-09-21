@@ -16,8 +16,16 @@
  *    further away?) settles toward "further away", and floors make it worse.
  *    Moving a device most of the way to where it belongs, never past it.
  *  - a board that is really no different comes back within ~±3 dB of zero.
- *  - the ± it reports is how much the answer moves when links are resampled:
- *    stability, not accuracy. It can be ±1 dB and still 7 dB short.
+ *  - the ± it reports is a jackknife: how much the answer moves when any one
+ *    device is left out of the fit. Stability, not accuracy.
+ *
+ * On the live fleet (2026-09-21, 62 reports, medians of 3-24 samples per link)
+ * it was NOT stable: the gateway came out −8 … −17 dB depending on which
+ * device was left out, the C3s −0 … −15, and the Wallbox −8 … +12 (it sits
+ * next to the Garagentor, and two co-located devices cannot be told apart).
+ * Resampling links, the previous ± here, reported ±2-5 dB for all of that.
+ * So the gate below is the jackknife, and a board that fails it gets 0 dB and
+ * a reason, and a manual override is the way to set what is known. 
  * Without floors the error roughly halves. A limit on the house's height was
  * tried and did not help.
  *
@@ -39,7 +47,7 @@
 (function (NQ) {
   'use strict';
 
-  var ITER = 2500, RESTARTS = 3, BOOT = 6, BOOT_ITER = 1200;
+  var ITER = 2500, RESTARTS = 3, JACK_ITER = 1500;
   var NONLINK_W = 0.3;
   var MIN_LINKS = 4;         /* links of a board to an already-known end */
   var MAX_SPREAD = 6;        /* dB; beyond this the estimate is shown, not used */
@@ -100,7 +108,8 @@
              nonlinks: nonlinks, sens: sens, linked: linked };
   }
 
-  function fit(P, meas, init, iters, rnd) {
+  function fit(P, meas, init, iters, rnd, nonlinks) {
+    nonlinks = nonlinks || P.nonlinks;
     var N = P.devs.length, B = P.boards.length;
     var X = init ? init.X.map(function (p) { return p.slice(); })
                  : P.devs.map(function () { return [rnd() * 20 - 10, rnd() * 20 - 10, rnd() * 6 - 3]; });
@@ -133,7 +142,7 @@
         for (var a = 0; a < 3; a++) { gX[i][a] += dd * dv[a] / d; gX[j][a] -= dd * dv[a] / d; }
       };
       meas.forEach(function (m) { term(m.i, m.j, m.r, 1, false); });
-      P.nonlinks.forEach(function (p) { term(p.i, p.j, P.sens, NONLINK_W, true); });
+      nonlinks.forEach(function (p) { term(p.i, p.j, P.sens, NONLINK_W, true); });
       for (var i = 0; i < N; i++) for (var a = 0; a < 3; a++) X[i][a] -= step('x' + i + a, gX[i][a], 0.03, t);
       for (var k = 0; k < B; k++) g[k] -= step('g' + k, gg[k], 0.05, t);
       A -= step('A', gA, 0.05, t);
@@ -166,13 +175,22 @@
       var f = fit(P, P.meas, null, ITER, rnd);
       if (!best || f.loss < best.loss) best = f;
     }
-    /* bootstrap: refit on links drawn with replacement, from the best fit */
+    /* Leave one device out at a time and refit (a jackknife). On the live
+     * fleet this is what exposed the problem: resampling links said ±2 dB for
+     * estimates that swung by 14 dB depending on whether one neighbour -- two
+     * co-located devices, say -- was in the fit. A board estimate is only as
+     * good as its worst dependence on a single device. */
     var samples = P.boards.map(function () { return []; });
-    for (var b = 0; b < BOOT; b++) {
-      var res = [];
-      for (var k = 0; k < P.meas.length; k++) res.push(P.meas[Math.floor(rnd() * P.meas.length)]);
-      var fb = fit(P, res, best, BOOT_ITER, rnd);
-      fb.g.forEach(function (v, i) { samples[i].push(v); });
+    for (var d = 0; d < P.devs.length; d++) {
+      var own = P.slot[d];
+      var sub = P.meas.filter(function (m) { return m.i !== d && m.j !== d; });
+      var nl = P.nonlinks.filter(function (p) { return p.i !== d && p.j !== d; });
+      var fj = fit(P, sub, best, JACK_ITER, rnd, nl);
+      fj.g.forEach(function (v, i) {
+        /* a board whose only device was the one left out has no estimate */
+        if (i === own && P.slot.filter(function (x) { return x === own; }).length === 1) return;
+        samples[i].push(v);
+      });
     }
 
     out.n = best.n;
@@ -180,14 +198,19 @@
     P.boards.forEach(function (name, k) {
       var s = samples[k];
       var mean = s.reduce(function (x, y) { return x + y; }, 0) / s.length;
-      var sd = Math.sqrt(s.reduce(function (x, y) { return x + (y - mean) * (y - mean); }, 0) / s.length);
+      /* the jackknife standard error: (n-1)/n of the squared deviations */
+      var sd = Math.sqrt((s.length - 1) / s.length *
+                         s.reduce(function (x, y) { return x + (y - mean) * (y - mean); }, 0));
+      var lo = Math.min.apply(null, s), hi = Math.max.apply(null, s);
       var links = Object.keys(ev[k]).length;
       var devices = P.devs.filter(function (d, i) { return P.slot[i] === k; }).map(function (d) { return d.id; });
       var why = null;
       if (refs < 2) why = 'needs at least two devices with no board (or a manual value) to measure against';
       else if (links < MIN_LINKS) why = 'only ' + links + ' link' + (links === 1 ? '' : 's') + ' to other boards; needs ' + MIN_LINKS;
-      else if (sd > MAX_SPREAD) why = 'too uncertain (±' + sd.toFixed(1) + ' dB)';
+      else if (sd > MAX_SPREAD) why = 'depends on which devices are in the fit (' +
+                                      lo.toFixed(0) + ' … ' + hi.toFixed(0) + ' dB leaving one out)';
       out.boards[name] = { db: Math.round(best.g[k] * 10) / 10, spread: Math.round(sd * 10) / 10,
+                           range: [Math.round(lo * 10) / 10, Math.round(hi * 10) / 10],
                            links: links, devices: devices, ok: !why, why: why };
     });
     return out;

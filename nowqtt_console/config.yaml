@@ -13,7 +13,7 @@
 # the page appears as a tab in the sidebar, and there is a writable volume to
 # keep long-term history in.
 name: nowqtt console
-version: "0.5.0"
+version: "0.5.1"
 slug: nowqtt_console
 description: Technical console for the nowqtt ESP-NOW mesh -- topology, counters, configuration and firmware updates
 url: https://github.com/nowqtt/nowqtt-console

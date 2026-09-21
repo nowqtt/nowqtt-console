@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.1
+
+- **A board estimate is applied only if it survives leaving any one device
+  out.** Checked against the live fleet, the 0.5.0 estimates had the right
+  directions (gateway −14, C3 −4, Wallbox +9 dB), but each moved by 10–20 dB
+  when a single neighbour was left out of the fit. The ± shown until now came
+  from resampling links, and it reported ±2–5 dB for all of that. The gate and
+  the ± are now that leave-one-device-out test. On today's mesh no board
+  passes it, and the reason is shown. Use the per-device override for an
+  antenna you know.
+
 ## 0.5.0
 
 - **Antenna corrections for the maps.** Give a device a **board** under

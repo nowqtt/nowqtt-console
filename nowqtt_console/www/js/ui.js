@@ -306,8 +306,8 @@
     });
     box.appendChild(h('div', { class: 'faint', style: 'margin-top:4px', text: 'Subtracted before ' +
       'RSSI becomes distance; the dBm on the links is still what was measured. A board ' +
-      'estimate tends to fall short of the real offset, and its ± is how stable it is, ' +
-      'not how accurate.' }));
+      'estimate is used only if it holds when any one device is left out of the fit (its ±); ' +
+      'even then it tends to fall short of the real offset.' }));
   }
 
   function renderMap() {
