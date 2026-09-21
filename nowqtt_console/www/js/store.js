@@ -45,6 +45,12 @@
 
   var state = clone(DEFAULTS);
 
+  /* Names the devices declare for themselves, keyed by id. Deliberately
+   * outside `state`: state is persisted, and these arrive retained on every
+   * connect, so storing them would only preserve a name a device has since
+   * stopped using. */
+  var declared = {};
+
   function load() {
     var raw = null;
     try { raw = localStorage.getItem(KEY); } catch (e) { /* private mode */ }
@@ -139,6 +145,17 @@
       if (name) { state.names[id] = name; } else { delete state.names[id]; }
       save();
     },
-    label: function (id) { return state.names[id] || id; }
+    /* The name the firmware declares for itself, relayed by the gateway on
+     * `t/name`. Not persisted and not saved: it arrives with the retained
+     * topics on every connect, and writing it to local storage would leave a
+     * stale copy of a name the device has since changed. */
+    declared: function (id) { return declared[id] || ''; },
+    setDeclared: function (id, name) {
+      if (name) { declared[id] = name; } else { delete declared[id]; }
+    },
+    /* A name set here wins: somebody looking at this fleet decided what to
+     * call the device. The firmware's name is what makes a browser that has
+     * never seen this fleet show something other than a wall of addresses. */
+    label: function (id) { return state.names[id] || declared[id] || id; }
   };
 })(window.NQ = window.NQ || {});

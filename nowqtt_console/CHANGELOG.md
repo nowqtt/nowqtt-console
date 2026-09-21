@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.1
+
+- **A device arrives with a name.** The gateway now republishes each device's
+  declared name on `dev/<mac>/name`, and the console uses it as the label and
+  as the placeholder in the name field. Until now a fresh browser showed a
+  wall of MAC addresses: names were typed in and kept in that one browser's
+  local storage, so they were gone on a phone or after clearing site data. A
+  name typed here still wins — it is the more specific statement. Needs
+  gateway firmware `8864cbe` or later.
+
 ## 0.3.0
 
 - **Keeps a backup of the mesh's network record.** Since the first key

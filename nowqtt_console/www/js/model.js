@@ -282,6 +282,18 @@
       else if (name === 'mesh' && body) d.kind = 'node';
       else if (d.kind === 'unknown') d.kind = 'node';
 
+      /* The gateway transcodes this out of the device's descriptor, which is
+       * binary and which a page in a browser has no business decoding. It is
+       * what the console calls the device until somebody names it here. */
+      if (name === 'name') {
+        d.declaredName = text;
+        /* The store is what the views ask for a label, and it is browser-only
+         * -- it owns localStorage. Kept behind a guard so this module still
+         * loads and tests on its own, which is the arrangement the whole js/
+         * directory is built around. */
+        if (NQ.store) NQ.store.setDeclared(mac, text);
+      }
+
       if (name === 'build') d.build = text;
       if (body && body.build) d.build = body.build;
 

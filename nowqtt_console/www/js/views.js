@@ -75,7 +75,9 @@
     if (!d) { box.appendChild(h('div', { class: 'note', text: 'No device selected.' })); return; }
 
     /* --- identity --- */
-    var nameInput = h('input', { value: NQ.store.name(d.id), placeholder: d.id, style: 'width:220px' });
+    var nameInput = h('input', { value: NQ.store.name(d.id),
+                                 placeholder: NQ.store.declared(d.id) || d.id,
+                                 style: 'width:220px' });
     nameInput.addEventListener('change', function () {
       NQ.store.setName(d.id, nameInput.value.trim());
       U.markDirty();
