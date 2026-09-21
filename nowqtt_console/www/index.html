@@ -5,8 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>nowqtt console</title>
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#0b0f14">
+<meta name="theme-color" content="#1c1c1c">
 <link rel="stylesheet" href="css/app.css">
+<script src="js/theme.js"></script>
 </head>
 <body>
 
@@ -14,6 +15,7 @@
   <div class="brand">nowqtt <span>console v2</span></div>
   <nav id="nav">
     <button data-view="map" class="on">Map</button>
+    <button data-view="map3d">3D</button>
     <button data-view="devices">Devices<span class="badge" id="badge-dev">0</span></button>
     <button data-view="ota">OTA</button>
     <button data-view="network">Network</button>
@@ -36,8 +38,8 @@
     <div class="mapwrap">
       <svg id="mapsvg"></svg>
 
-      <div class="maptools">
-        <h3>Layout</h3>
+      <details class="maptools" open>
+        <summary>Layout</summary>
         <div class="row" style="gap:6px">
           <button class="btn sm" id="map-reheat">Reheat</button>
           <button class="btn sm" id="map-unpin">Unpin</button>
@@ -64,12 +66,51 @@
         </div>
         <hr style="border:0;border-top:1px solid var(--line);margin:10px 0">
         <div class="note" id="map-coverage"></div>
-      </div>
+      </details>
 
       <div class="maplegend">
-        <div><i class="swatch" style="border-color:#3ddc97"></i> ≥ −60 dBm</div>
-        <div><i class="swatch" style="border-color:#ffb454"></i> −72 … −82</div>
-        <div><i class="swatch" style="border-color:#ff5c5c"></i> &lt; −82</div>
+        <div><i class="swatch" style="border-color:var(--accent)"></i> ≥ −60 dBm</div>
+        <div><i class="swatch" style="border-color:var(--warn)"></i> −72 … −82</div>
+        <div><i class="swatch" style="border-color:var(--bad)"></i> &lt; −82</div>
+        <div><i class="swatch" style="border-color:var(--unknown);border-top-style:dotted"></i> claimed, not measured</div>
+        <div><i class="swatch" style="border-color:var(--unknown);border-top-style:dashed"></i> path unknown</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ---------- 3d map ------------------------------------------------- -->
+  <section class="view flush" data-view="map3d">
+    <div class="mapwrap">
+      <canvas id="map3d"></canvas>
+
+      <details class="maptools" open>
+        <summary>3D layout</summary>
+        <div class="btnrow">
+          <button class="btn sm" id="m3-relayout">Re-layout</button>
+          <button class="btn sm" id="m3-reset">Reset view</button>
+        </div>
+        <label class="inline" style="margin-top:9px"><input type="checkbox" id="m3-spin"> rotate slowly</label>
+        <label class="inline" style="margin-top:5px"><input type="checkbox" id="m3-drops" checked> height lines to the floor</label>
+        <p class="note maphint">
+          Each device sits where the measured links put it: the distance
+          between two ends follows their RSSI, and a pair nobody measured is
+          only kept from overlapping. The rings on the floor are −50, −70 and
+          −90 dBm from the gateway. Height means nothing on its own — it is
+          the third axis the distances needed.
+        </p>
+        <p class="note maphint">
+          <kbd>drag</kbd> rotate · <kbd>right-drag</kbd> or <kbd>shift</kbd> pan ·
+          <kbd>wheel</kbd> zoom · one finger rotates, two pan and pinch ·
+          double-tap resets
+        </p>
+        <hr style="border:0;border-top:1px solid var(--line);margin:10px 0">
+        <div class="note" id="m3-stress"></div>
+      </details>
+
+      <div class="maplegend">
+        <div><i class="swatch" style="border-color:var(--accent)"></i> ≥ −60 dBm</div>
+        <div><i class="swatch" style="border-color:var(--warn)"></i> −72 … −82</div>
+        <div><i class="swatch" style="border-color:var(--bad)"></i> &lt; −82</div>
         <div><i class="swatch" style="border-color:var(--unknown);border-top-style:dotted"></i> claimed, not measured</div>
         <div><i class="swatch" style="border-color:var(--unknown);border-top-style:dashed"></i> path unknown</div>
       </div>
@@ -86,7 +127,7 @@
 
   <!-- ---------- ota ----------------------------------------------------- -->
   <section class="view" data-view="ota">
-    <div class="grid" style="grid-template-columns:minmax(0,1fr) minmax(0,1fr);max-width:1180px">
+    <div class="grid cols2">
       <div>
         <div class="panel">
           <h2>1 · Image</h2>
@@ -165,7 +206,7 @@
   <section class="view" data-view="network">
     <div id="nc-tiles" class="tiles" style="max-width:1180px"></div>
     <div id="nc-banner" style="max-width:1180px;margin-top:12px"></div>
-    <div class="grid" style="grid-template-columns:minmax(0,1fr) minmax(0,1fr);max-width:1180px;margin-top:14px">
+    <div class="grid cols2" style="margin-top:14px">
       <div>
         <div class="panel">
           <h2>Channel and key <span class="sub">every mains node votes</span></h2>
@@ -363,6 +404,7 @@
 <script src="js/netcfg.js"></script>
 <script src="js/history.js"></script>
 <script src="js/map.js"></script>
+<script src="js/map3d.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/views.js"></script>
 <script src="js/network.js"></script>

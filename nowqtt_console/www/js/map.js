@@ -41,10 +41,10 @@
 
   function rssiColor(r) {
     if (r === null || r === undefined) return 'var(--unknown)';
-    if (r >= -60) return '#3ddc97';
-    if (r >= -72) return '#7bd88f';
-    if (r >= -82) return '#ffb454';
-    return '#ff5c5c';
+    if (r >= -60) return 'var(--accent)';
+    if (r >= -72) return 'var(--rssi-good)';
+    if (r >= -82) return 'var(--warn)';
+    return 'var(--bad)';
   }
 
   function init(svgEl, selectCb) {
@@ -69,8 +69,29 @@
       applyView();
     }, { passive: false });
 
+    /* Touch: one finger drags a node or pans, two pinch and pan together.
+     * Every pointer is tracked so a second finger landing mid-drag turns the
+     * gesture into a pinch instead of being taken for a new drag. */
     var panning = null;
+    var touches = {};
+    var pinch = null;
+
+    function pinchState() {
+      var ids = Object.keys(touches);
+      var a = touches[ids[0]], b = touches[ids[1]];
+      return { d: Math.hypot(a.x - b.x, a.y - b.y) || 1,
+               x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    }
+
     svg.addEventListener('pointerdown', function (ev) {
+      touches[ev.pointerId] = { x: ev.clientX, y: ev.clientY };
+      if (Object.keys(touches).length === 2) {
+        sim.drag = null; panning = null;
+        pinch = pinchState();
+        try { svg.setPointerCapture(ev.pointerId); } catch (e) { /* ignore */ }
+        return;
+      }
+      if (Object.keys(touches).length > 2) return;
       var id = ev.target && ev.target.getAttribute && ev.target.getAttribute('data-node');
       if (id) {
         sim.drag = { id: id };
@@ -86,6 +107,19 @@
     });
     svg.addEventListener('pointermove', function (ev) {
       var r = svg.getBoundingClientRect();
+      if (touches[ev.pointerId]) touches[ev.pointerId] = { x: ev.clientX, y: ev.clientY };
+      if (pinch && Object.keys(touches).length === 2) {
+        var now = pinchState();
+        var f = now.d / pinch.d;
+        var px = pinch.x - r.left, py = pinch.y - r.top;
+        /* zoom about where the fingers were, then follow their midpoint */
+        sim.view.x = px - (px - sim.view.x) * f + (now.x - pinch.x);
+        sim.view.y = py - (py - sim.view.y) * f + (now.y - pinch.y);
+        sim.view.k *= f;
+        pinch = now;
+        applyView();
+        return;
+      }
       if (sim.drag) {
         var n = sim.nodes[sim.drag.id];
         if (n) {
@@ -100,11 +134,15 @@
         applyView();
       }
     });
-    svg.addEventListener('pointerup', function (ev) {
+    function up(ev) {
+      delete touches[ev.pointerId];
+      pinch = null;
       sim.drag = null; panning = null;
       svg.classList.remove('drag');
       try { svg.releasePointerCapture(ev.pointerId); } catch (e) { /* ignore */ }
-    });
+    }
+    svg.addEventListener('pointerup', up);
+    svg.addEventListener('pointercancel', up);
   }
 
   function applyView() {

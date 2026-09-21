@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.4.0
+
+- **A 3D map.** A new tab places every device in three dimensions so that the
+  distance between the two ends of each measured link follows its RSSI, on
+  the same scale the 2D map uses. A house is not flat, and a plane cannot hold
+  every distance at once. The panel says how closely the measured links are
+  reproduced. Drag to rotate, right-drag or shift-drag to pan, and use the
+  wheel to zoom. On a touchscreen, one finger rotates, two pan and pinch, and
+  a double tap resets the view.
+- **Looks like Home Assistant.** The console reads the theme of the Home
+  Assistant it is embedded in (colours, font, light or dark mode, custom
+  themes) and follows it when it changes. The header is the same height as
+  Home Assistant's sidebar title, so the two line up.
+- **Works on a phone.** The header folds into two rows with scrolling tabs.
+  Two-column pages become one column. The device list and a device's detail
+  take turns, with a back button. The map's panels start folded, and the 2D
+  map pinches and pans with two fingers.
+
 ## 0.3.1
 
 - **A device arrives with a name.** The gateway now republishes each device's

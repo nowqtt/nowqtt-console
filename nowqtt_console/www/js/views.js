@@ -54,7 +54,12 @@
       var sel = d.id === U.selected();
       box.appendChild(h('div', {
         class: 'dev' + (sel ? ' sel' : ''),
-        onclick: function () { U.select(d.id); NQ.map.select(d.id); devices(); }
+        onclick: function () {
+          U.select(d.id); NQ.map.select(d.id); NQ.map3d.select(d.id);
+          /* On a phone the list gives way to the detail; see .split.open. */
+          $('.split').classList.add('open');
+          devices();
+        }
       }, [
         h('i', { class: 'kindmark kind-' + d.kind }),
         h('div', {}, [
@@ -77,11 +82,16 @@
     /* --- identity --- */
     var nameInput = h('input', { value: NQ.store.name(d.id),
                                  placeholder: NQ.store.declared(d.id) || d.id,
-                                 style: 'width:220px' });
+                                 style: 'width:220px;max-width:100%' });
     nameInput.addEventListener('change', function () {
       NQ.store.setName(d.id, nameInput.value.trim());
       U.markDirty();
     });
+
+    box.appendChild(h('button', {
+      class: 'btn narrow-only', style: 'margin-bottom:10px', text: '← All devices',
+      onclick: function () { $('.split').classList.remove('open'); }
+    }));
 
     box.appendChild(h('div', { class: 'panel' }, [
       h('h2', {}, [
@@ -93,7 +103,7 @@
       h('div', { class: 'body' }, [
         h('div', { class: 'row' }, [
           h('label', { class: 'field' }, [document.createTextNode('name'), nameInput]),
-          h('div', { class: 'note', style: 'flex:1;min-width:220px',
+          h('div', { class: 'note', style: 'flex:1;min-width:min(220px,100%)',
             text: 'The name is stored in this browser. A node has nowhere to ' +
                   'keep one until it carries a config document of its own.' })
         ])
@@ -817,7 +827,7 @@
       return;
     }
 
-    var W = Math.max(480, Math.min(1120, box.clientWidth || 900));
+    var W = Math.max(280, Math.min(1120, box.clientWidth || 900));
     var H = 260;
     var sc = NQ.history.scale(pts, W, H);
     var svg = svgEl('svg', { width: W, height: H, style: 'display:block' });

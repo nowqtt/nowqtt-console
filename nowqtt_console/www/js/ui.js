@@ -149,6 +149,7 @@
       return d.kind !== 'unknown';
     }).length;
     if (view === 'map') renderMap();
+    else if (view === 'map3d') renderMap3d();
     else if (view === 'live') renderLive();
     else if (view === 'devices') NQ.views.devices();
     else if (view === 'soak') NQ.views.soak();
@@ -163,6 +164,7 @@
     $$('#nav button').forEach(function (b) { b.classList.toggle('on', b.dataset.view === v); });
     $$('.view').forEach(function (s) { s.classList.toggle('on', s.dataset.view === v); });
     if (v === 'map') NQ.map.reheat();
+    NQ.map3d.setActive(v === 'map3d');
     dirty = true;
     render();
   }
@@ -251,6 +253,15 @@
     }
   }
 
+  var lastGraphKey3d = '';
+
+  function renderMap3d() {
+    var graph = NQ.topo.build(NQ.model.all());
+    var key = graph.nodes.map(function (n) { return n.id + ':' + n.gwHops; }).join(',') + '|' +
+              graph.edges.map(function (e) { return e.a + '-' + e.b + ':' + e.best; }).join(',');
+    if (key !== lastGraphKey3d) { lastGraphKey3d = key; NQ.map3d.setGraph(graph); }
+  }
+
   /* ---------- boot ------------------------------------------------------ */
 
   function wire() {
@@ -316,7 +327,24 @@
     NQ.map.init($('#mapsvg'), function (id) {
       selected = id;
       NQ.map.select(id);
+      NQ.map3d.select(id);
     });
+
+    /* 3d map */
+    NQ.map3d.init($('#map3d'), {
+      stress: $('#m3-stress'),
+      onSelect: function (id) { selected = id; NQ.map.select(id); NQ.map3d.select(id); }
+    });
+    $('#m3-relayout').addEventListener('click', function () { NQ.map3d.relayout(); });
+    $('#m3-reset').addEventListener('click', function () { NQ.map3d.resetView(); });
+    $('#m3-spin').addEventListener('change', function (e) { NQ.map3d.setSpin(e.target.checked); });
+    $('#m3-drops').addEventListener('change', function (e) { NQ.map3d.setDrops(e.target.checked); });
+
+    /* On a phone the map's tool panels start folded, so the map is what you
+     * see first; the summary line opens them. */
+    if (typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 760px)').matches) {
+      $$('.maptools').forEach(function (d) { d.removeAttribute('open'); });
+    }
     $('#map-reheat').addEventListener('click', function () { NQ.map.reheat(); });
     $('#map-unpin').addEventListener('click', function () { NQ.map.unpin(); });
     $('#map-fit').addEventListener('click', function () { NQ.map.fit(); });
