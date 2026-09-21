@@ -124,6 +124,7 @@ class Recorder:
         self.client: mqtt.Client | None = None
         self._stop = threading.Event()
         self.backup = None          # netbackup.NetBackup, attached by app.py
+        self.links = None           # links.LinkStats, attached by app.py
 
     # ---- mqtt --------------------------------------------------------
 
@@ -169,6 +170,14 @@ class Recorder:
             return
         if self.backup is not None and msg.topic.endswith("/bridge/netcfg"):
             self.backup.on_status(msg.topic, payload)
+
+        # Before the retained check: LinkStats decides for itself what a
+        # replayed report is worth (see its on_message).
+        if self.links is not None:
+            try:
+                self.links.on_message(msg.topic, payload, bool(msg.retain), now)
+            except Exception as exc:                # noqa: BLE001
+                LOG.error("link stats: %s", exc)
 
         if self.raw is not None:
             self.raw.write(json.dumps({
@@ -242,6 +251,8 @@ class Recorder:
             try:
                 self.store.flush()
                 self.store.prune()
+                if self.links is not None:
+                    self.links.flush()
             except Exception as exc:                # noqa: BLE001
                 LOG.error("housekeeping: %s", exc)
 
@@ -250,6 +261,8 @@ class Recorder:
         if self.client is not None:
             self.client.loop_stop()
         self.store.flush()
+        if self.links is not None:
+            self.links.flush()
         if self.raw is not None:
             self.raw.close()
 

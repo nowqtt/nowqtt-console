@@ -20,6 +20,8 @@ from aiohttp import web
 
 from . import config as cfgmod
 from . import mqttws
+from .devsettings import DeviceSettings
+from .links import LinkStats
 from .netbackup import NetBackup
 from .recorder import Recorder
 from .store import SeriesStore
@@ -125,6 +127,32 @@ async def api_netcfg_backup(request: web.Request) -> web.Response:
     return web.json_response(doc, headers={"Cache-Control": "no-store"})
 
 
+async def api_settings(request: web.Request) -> web.Response:
+    """Every device's name and antenna offset, as people set them."""
+    ds: DeviceSettings = request.app["devsettings"]
+    return web.json_response({"devices": ds.all()},
+                             headers={"Cache-Control": "no-store"})
+
+
+async def api_settings_set(request: web.Request) -> web.Response:
+    """Change one device: {"id": "<mac>", "name"?, "board"?, "antenna"?}; null clears."""
+    ds: DeviceSettings = request.app["devsettings"]
+    try:
+        body = await request.json()
+        if not isinstance(body, dict):
+            raise ValueError("expected a JSON object")
+        devs = ds.update(body.get("id"), {k: body[k] for k in ds.FIELDS if k in body})
+    except ValueError as e:
+        raise web.HTTPBadRequest(text=str(e))
+    return web.json_response({"devices": devs})
+
+
+async def api_links(request: web.Request) -> web.Response:
+    """Each link's median RSSI over its last reports, per measuring end."""
+    ls: LinkStats = request.app["links"]
+    return web.json_response(ls.snapshot(), headers={"Cache-Control": "no-store"})
+
+
 async def index(request: web.Request) -> web.StreamResponse:
     path = os.path.join(WWW, "index.html")
     if not os.path.exists(path):
@@ -147,6 +175,8 @@ def build_app() -> web.Application:
 
     netbackup = NetBackup(DATA, opts["topic_prefix"])
     recorder.backup = netbackup
+    links = LinkStats(DATA)
+    recorder.links = links
 
     app = web.Application()
     app["mqtt"] = broker
@@ -154,6 +184,8 @@ def build_app() -> web.Application:
     app["store"] = store
     app["recorder"] = recorder
     app["netbackup"] = netbackup
+    app["devsettings"] = DeviceSettings(DATA)
+    app["links"] = links
 
     app.router.add_get("/api/health", health)
     app.router.add_get("/api/config", api_config)
@@ -163,6 +195,9 @@ def build_app() -> web.Application:
     app.router.add_get("/api/history", api_history)
     app.router.add_get("/api/netcfg/backups", api_netcfg_backups)
     app.router.add_get("/api/netcfg/backup/{uid}", api_netcfg_backup)
+    app.router.add_get("/api/settings", api_settings)
+    app.router.add_post("/api/settings", api_settings_set)
+    app.router.add_get("/api/links", api_links)
     app.router.add_get("/mqtt", mqttws.handler)
     app.router.add_get("/", index)
     if os.path.isdir(WWW):

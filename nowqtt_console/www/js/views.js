@@ -36,7 +36,12 @@
     var id = U.selected();
     var dev = id ? NQ.model.get(id) : null;
     if (!dev && list.length) { dev = list[0]; U.select(dev.id); }
-    renderDetail(dev);
+    /* Not while someone is typing in it: the rebuild would take the focus
+     * and the half-typed value with it. It catches up on the next tick. */
+    var ae = document.activeElement;
+    var typing = ae && /^(INPUT|SELECT|TEXTAREA)$/.test(ae.tagName) &&
+                 $('#devdetail').contains && $('#devdetail').contains(ae);
+    if (!typing || !dev || $('#devdetail').dataset.dev !== dev.id) renderDetail(dev);
   }
 
   function renderList(list) {
@@ -77,16 +82,61 @@
 
   function renderDetail(d) {
     var box = clear($('#devdetail'));
+    box.dataset.dev = d ? d.id : '';
     if (!d) { box.appendChild(h('div', { class: 'note', text: 'No device selected.' })); return; }
 
     /* --- identity --- */
-    var nameInput = h('input', { value: NQ.store.name(d.id),
-                                 placeholder: NQ.store.declared(d.id) || d.id,
+    var S = NQ.store;
+    var can = S.editable();
+    var stat = h('span', { class: 'mono faint', text: '' });
+    function saved(p, what) {
+      stat.className = 'mono faint'; stat.textContent = 'saving…';
+      p.then(function () {
+        stat.className = 'mono ok'; stat.textContent = what + ' saved';
+        U.markDirty();
+      }, function (e) {
+        stat.className = 'mono badc'; stat.textContent = String(e && e.message || e);
+      });
+    }
+    var nameInput = h('input', { value: S.name(d.id),
+                                 placeholder: S.declared(d.id) || d.id,
                                  style: 'width:220px;max-width:100%' });
     nameInput.addEventListener('change', function () {
-      NQ.store.setName(d.id, nameInput.value.trim());
-      U.markDirty();
+      saved(S.setName(d.id, nameInput.value.trim()), 'name');
     });
+    var ant = S.antenna(d.id);
+    var antInput = h('input', { type: 'number', step: '0.5', min: '-30', max: '30',
+                                value: ant ? String(ant) : '', placeholder: '0',
+                                style: 'width:90px' });
+    antInput.addEventListener('change', function () {
+      saved(S.setAntenna(d.id, antInput.value.trim() === '' ? 0 : antInput.value), 'antenna');
+    });
+    var boardInput = h('input', { value: S.board(d.id), placeholder: 'e.g. c3-supermini',
+                                  list: 'board-list', style: 'width:170px;max-width:100%' });
+    boardInput.addEventListener('change', function () {
+      saved(S.setBoard(d.id, boardInput.value.trim()), 'board');
+    });
+    var boardList = h('datalist', { id: 'board-list' },
+      S.boards().map(function (b) { return h('option', { value: b }); }));
+    if (!can) { nameInput.disabled = true; antInput.disabled = true; boardInput.disabled = true; }
+
+    /* which offset the maps use for this device, and where it came from */
+    var eff = NQ.antenna.offset(d.id, function (id) {
+      return { board: S.board(id), manual: S.antenna(id) || null };
+    });
+    var est = S.board(d.id) && (NQ.antenna.current().boards || {})[S.board(d.id)];
+    var effText = S.antenna(d.id)
+      ? 'The maps use ' + fmtDb(eff) + ', set by hand.'
+      : !S.board(d.id)
+        ? 'No board, so this device is part of the reference: 0 dB.'
+        : !est
+          ? 'The ' + S.board(d.id) + ' offset has not been estimated yet.'
+          : est.ok
+            ? 'The maps use the ' + S.board(d.id) + ' estimate, ' + fmtDb(est.db) + ' (±' +
+              est.spread + ', ' + est.links + ' links, ' + est.devices.length + ' device' +
+              (est.devices.length === 1 ? '' : 's') + ').'
+            : 'The ' + S.board(d.id) + ' estimate is ' + fmtDb(est.db) + ' but is not used: ' +
+              est.why + '. The maps use 0 dB.';
 
     box.appendChild(h('button', {
       class: 'btn narrow-only', style: 'margin-bottom:10px', text: '← All devices',
@@ -101,11 +151,31 @@
                                         ' · seen ' + ago(d.lastSeen) })
       ]),
       h('div', { class: 'body' }, [
-        h('div', { class: 'row' }, [
+        h('div', { class: 'row', style: 'align-items:flex-end' }, [
           h('label', { class: 'field' }, [document.createTextNode('name'), nameInput]),
-          h('div', { class: 'note', style: 'flex:1;min-width:min(220px,100%)',
-            text: 'The name is stored in this browser. A node has nowhere to ' +
-                  'keep one until it carries a config document of its own.' })
+          h('label', { class: 'field' }, [document.createTextNode('board'), boardInput]),
+          h('label', { class: 'field' }, [document.createTextNode('antenna override, dB'), antInput]),
+          stat, boardList
+        ]),
+        h('div', { class: 'mono', style: 'margin-top:10px', text: effText }),
+        h('p', { class: 'note', style: 'margin:10px 0 0' }, can ? [
+          h('strong', { text: 'Board' }),
+          document.createTextNode(': the kind of hardware. Devices with the same ' +
+            'board share one antenna offset, estimated from all their links ' +
+            'together. On a single link, a weak antenna and a long distance ' +
+            'read the same, so the estimate needs many links. Devices with no ' +
+            'board are the 0 dB reference. The maps subtract the offset ' +
+            'before turning RSSI into distance, and the dBm on a link stays ' +
+            'what was measured. The estimate tends to fall short of the real ' +
+            'offset. '),
+          h('strong', { text: 'Override' }),
+          document.createTextNode(': a value you know better, for this device ' +
+            'alone. It replaces the estimate. Everything here is kept by the ' +
+            'add-on, so every browser sees it.')
+        ] : [
+          document.createTextNode('Names, boards and antenna corrections are kept by ' +
+            'the Home Assistant add-on. This page is not served by it, so ' +
+            'there is nowhere to save them.')
         ])
       ])
     ]));
@@ -116,6 +186,8 @@
     box.appendChild(configPanel(d));
     box.appendChild(seriesPanel(d));
   }
+
+  function fmtDb(v) { return (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v) + ' dB'; }
 
   function headline(d) {
     var t = h('div', { class: 'tiles', style: 'margin-bottom:12px' });

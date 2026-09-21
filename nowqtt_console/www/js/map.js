@@ -219,7 +219,7 @@
     g.edges.forEach(function (e) {
       var a = sim.nodes[e.a], b = sim.nodes[e.b];
       if (!a || !b) return;
-      var rest = NQ.topo.restLength(e.best);
+      var rest = NQ.topo.restLength(e.norm);
       var k = e.ends > 0 ? 0.02 : (e.claim ? 0.012 : 0.005);
       var dx = b.x - a.x, dy = b.y - a.y;
       var d = Math.sqrt(dx * dx + dy * dy) || 1;
@@ -298,7 +298,7 @@
       gNodes.appendChild(grp);
 
       var t = el('text', { class: 'nodelabel', 'text-anchor': 'middle' });
-      t.textContent = NQ.store.name(nd.id) || shortMac(nd.id);
+      t.textContent = NQ.store.shownName(nd.id) || shortMac(nd.id);
       gLabels.appendChild(t);
 
       var t2 = el('text', { class: 'edgelabel', 'text-anchor': 'middle' });

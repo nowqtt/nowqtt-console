@@ -66,6 +66,8 @@
         </div>
         <hr style="border:0;border-top:1px solid var(--line);margin:10px 0">
         <div class="note" id="map-coverage"></div>
+        <hr style="border:0;border-top:1px solid var(--line);margin:10px 0">
+        <div class="note" id="map-antenna"></div>
       </details>
 
       <div class="maplegend">
@@ -93,8 +95,8 @@
         <label class="inline" style="margin-top:5px"><input type="checkbox" id="m3-drops" checked> height lines to the floor</label>
         <p class="note maphint">
           Each device sits where the measured links put it: the distance
-          between two ends follows their RSSI, and a pair nobody measured is
-          only kept from overlapping. The rings on the floor are −50, −70 and
+          between two ends follows their RSSI, less any antenna correction,
+          and a pair nobody measured is only kept from overlapping. The rings on the floor are −50, −70 and
           −90 dBm from the gateway. Height means nothing on its own — it is
           the third axis the distances needed.
         </p>
@@ -105,6 +107,8 @@
         </p>
         <hr style="border:0;border-top:1px solid var(--line);margin:10px 0">
         <div class="note" id="m3-stress"></div>
+        <hr style="border:0;border-top:1px solid var(--line);margin:10px 0">
+        <div class="note" id="m3-antenna"></div>
       </details>
 
       <div class="maplegend">
@@ -398,6 +402,7 @@
 <script src="js/broker.js"></script>
 <script src="js/model.js"></script>
 <script src="js/topo.js"></script>
+<script src="js/antenna.js"></script>
 <script src="js/image.js"></script>
 <script src="js/ota.js"></script>
 <script src="js/config.js"></script>

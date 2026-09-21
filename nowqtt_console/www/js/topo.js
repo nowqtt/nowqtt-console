@@ -101,6 +101,9 @@
       v.known = true;
       v.build = d.build || null;
       v.lastSeen = d.lastSeen || 0;
+      /* It publishes its own neighbour list, so a device missing from that
+       * list is one it does not hear -- which antenna.js relies on. */
+      v.reports = Array.isArray(d.peers);
       var hops = d.series && d.series['mesh.gw_hops'];
       if (hops && typeof hops.v === 'number') v.gwHops = hops.v;
       if (d.kind === 'gateway') v.gwHops = 0;
@@ -135,8 +138,15 @@
         if (typeof p.rssi === 'number' && p.rssi !== 0) {
           /* Keyed by the end that measured it. A link heard at -70 from one
            * side and -86 from the other is one edge with two numbers, not two
-           * edges -- and the difference is the interesting part. */
-          e.rssi[from] = p.rssi;
+           * edges -- and the difference is the interesting part.
+           *
+           * The report's RSSI is the last single frame. Where the add-on has
+           * kept a median of the link's recent reports (opts.avg), that is the
+           * value used; the report still decides whether the link exists. */
+          var avg = opts.avg ? opts.avg(String(dev.id).toLowerCase(), String(p.m).toLowerCase()) : null;
+          e.rssi[from] = avg ? avg.rssi : p.rssi;
+          if (avg) e.samples = Math.min(e.samples || Infinity, avg.n);
+          else e.samples = 1;
         }
         if (typeof p.fail === 'number' && p.fail > 0) {
           e.fail = Math.max(e.fail || 0, p.fail);
@@ -210,6 +220,13 @@
       e.best = vals.length ? Math.max.apply(null, vals) : null;
       e.worst = vals.length ? Math.min.apply(null, vals) : null;
       e.asym = (vals.length === 2) ? Math.abs(vals[0] - vals[1]) : null;
+      /* What the link would read between two of the fleet's usual boards:
+       * the RSSI less both ends' antenna offsets. This is what distances are
+       * made from. e.best stays the measurement, and is what gets shown and
+       * coloured -- a link's quality is what it is, whatever the antennas. */
+      var off = (e.best !== null && opts.antenna)
+              ? (opts.antenna(e.a) || 0) + (opts.antenna(e.b) || 0) : 0;
+      e.norm = e.best === null ? null : e.best - off;
     });
 
     return {

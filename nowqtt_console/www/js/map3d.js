@@ -72,7 +72,8 @@
 
   /* ---------- layout ---------------------------------------------------- */
 
-  function lengthOf(e) { return NQ.topo.restLength(e.best); }
+  /* from the antenna-corrected RSSI; see topo.build */
+  function lengthOf(e) { return NQ.topo.restLength(e.norm); }
 
   /* How much a link's length is to be believed: a measurement fully, a relay's
    * claim of reachability less, a path inferred from a hop count barely. */
@@ -332,7 +333,7 @@
          : nd.known ? colors.accent : colors.unknown;
   }
 
-  function label(id) { return NQ.store.name(id) || NQ.map.shortMac(id); }
+  function label(id) { return NQ.store.shownName(id) || NQ.map.shortMac(id); }
 
   function draw() {
     if (!ctx || !graph) return;

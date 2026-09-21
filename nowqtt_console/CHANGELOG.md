@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.5.0
+
+- **Antenna corrections for the maps.** Give a device a **board** under
+  Devices (for example `c3-supermini`). The console estimates one antenna
+  offset per board from all the links its devices have, and both maps
+  subtract it before turning RSSI into distance. A weak-antenna board then no
+  longer sits further away than it is. Devices with no board are the 0 dB
+  reference. The dBm on a link stays what was measured. The estimate is used
+  only when there is enough evidence, and tends to fall a little short of the
+  real offset, never past it. A per-device **override** replaces it with a
+  value you know better.
+- **Averaged link RSSI.** A topology report carries the RSSI of a single
+  frame. The add-on now keeps each link's median over its last 30 reports, per
+  measuring end, across restarts, and the maps use it.
+- **Names, boards and overrides are kept by the add-on**, in
+  `/data/devices.json`, so every browser and phone shows the same fleet.
+  Nothing about a device is kept in the browser any more. Names typed into a
+  browser earlier are handed to the add-on the first time that browser opens
+  this version, then removed from it.
+- Typing into a device's fields is no longer interrupted by the page
+  refreshing underneath.
+
 ## 0.4.0
 
 - **A 3D map.** A new tab places every device in three dimensions so that the

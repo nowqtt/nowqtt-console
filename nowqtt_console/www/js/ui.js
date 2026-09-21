@@ -222,13 +222,99 @@
 
   var lastGraphKey = '';
 
+  /* What antenna.js needs to know about a device: its board, and a manual
+   * value if somebody set one. */
+  function antInfo(id) { return { board: S.board(id), manual: S.antenna(id) || null }; }
+
+  /* The board offsets are re-estimated when what they are fitted to changes
+   * -- link medians, board tags, manual values -- and at most every 20 s: a
+   * fit takes ~100 ms and the medians move slowly. Deferred to its own task
+   * so it never stalls a render. */
+  var estKey = '', estAt = 0, estPending = false;
+
+  function maybeEstimate(raw) {
+    var input = NQ.antenna.fromGraph(raw, antInfo);
+    if (!input.devices.some(function (d) { return d.board && d.manual === null; })) {
+      if (estKey) { estKey = ''; NQ.antenna.setCurrent(null); dirty = true; }
+      return;
+    }
+    var key = JSON.stringify(input.devices) + JSON.stringify(input.meas.map(function (m) {
+      return m.a + m.b + Math.round(m.rssi);
+    }));
+    if (key === estKey || estPending || Date.now() - estAt < 20000 && estKey) return;
+    estPending = true;
+    setTimeout(function () {
+      estPending = false;
+      estAt = Date.now();
+      estKey = key;
+      try { NQ.antenna.setCurrent(NQ.antenna.estimate(input, 7)); }
+      catch (e) { console.error(e); }
+      dirty = true;
+    }, 0);
+  }
+
+  function mapGraph() {
+    var devs = NQ.model.all();
+    maybeEstimate(NQ.topo.build(devs, { avg: S.linkAvg }));
+    return NQ.topo.build(devs, {
+      avg: S.linkAvg,
+      antenna: function (id) { return NQ.antenna.offset(id, antInfo); }
+    });
+  }
+
+  /* Rebuilding a map on every frame would fight its layout, so it is rebuilt
+   * only when the vertices, the edges or what their lengths come from change. */
+  function graphKey(graph) {
+    return graph.nodes.map(function (n) { return n.id + ':' + n.gwHops; }).join(',') + '|' +
+           graph.edges.map(function (e) { return e.a + '-' + e.b + ':' + e.best + ':' + e.norm; }).join(',');
+  }
+
+  function dB(v) { return (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v) + ' dB'; }
+
+  /* What the map's distances are made from, listed where the map is: a device
+   * drawn somewhere other than its raw RSSI would put it should say why. */
+  function renderAntenna(box, graph) {
+    clear(box);
+    var win = S.linksWindow();
+    var measured = graph.edges.filter(function (e) { return e.ends > 0; });
+    var avgd = measured.filter(function (e) { return e.samples > 1; }).length;
+    box.appendChild(h('div', { text: !win
+      ? 'RSSI: the latest report only. Averaging is done by the add-on.'
+      : avgd
+        ? 'RSSI: each link\'s median over up to ' + win + ' reports, kept by the add-on' +
+          (avgd < measured.length ? ' (' + avgd + ' of ' + measured.length + ' links so far)' : '') + '.'
+        : 'RSSI: the latest report; the add-on has not collected any history for these links yet.' }));
+
+    var est = NQ.antenna.current().boards || {};
+    var boards = S.boards();
+    var manual = graph.nodes.map(function (n) { return n.id; })
+      .filter(function (id) { return S.antenna(id); });
+    if (!boards.length && !manual.length) {
+      box.appendChild(h('div', { style: 'margin-top:6px', text: 'No antenna corrections. Give ' +
+        'devices a board in Devices and each board\'s offset is estimated.' }));
+      return;
+    }
+    box.appendChild(h('div', { style: 'margin-top:6px' }, [h('strong', { text: 'Antenna corrections' })]));
+    boards.forEach(function (b) {
+      var e = est[b];
+      box.appendChild(h('div', { class: 'mono ' + (e && e.ok ? '' : 'faint'),
+        text: b + ': ' + (!e ? 'estimating…'
+          : dB(e.db) + ' ±' + e.spread + ', ' + e.links + ' links' + (e.ok ? '' : ' — not used: ' + e.why)) }));
+    });
+    manual.forEach(function (id) {
+      box.appendChild(h('div', { class: 'mono', text: S.label(id) + ': ' + dB(S.antenna(id)) + ' (set by hand)' }));
+    });
+    box.appendChild(h('div', { class: 'faint', style: 'margin-top:4px', text: 'Subtracted before ' +
+      'RSSI becomes distance; the dBm on the links is still what was measured. A board ' +
+      'estimate tends to fall short of the real offset, and its ± is how stable it is, ' +
+      'not how accurate.' }));
+  }
+
   function renderMap() {
-    var graph = NQ.topo.build(NQ.model.all());
-    /* Rebuilding the SVG on every frame would fight the simulation, so it is
-     * rebuilt only when the set of vertices or edges actually changes. */
-    var key = graph.nodes.map(function (n) { return n.id + ':' + n.gwHops; }).join(',') + '|' +
-              graph.edges.map(function (e) { return e.a + '-' + e.b + ':' + e.best; }).join(',');
+    var graph = mapGraph();
+    var key = graphKey(graph);
     if (key !== lastGraphKey) { lastGraphKey = key; NQ.map.setGraph(graph); }
+    renderAntenna($('#map-antenna'), graph);
 
     var c = graph.coverage;
     var m = $('#map-coverage');
@@ -256,10 +342,10 @@
   var lastGraphKey3d = '';
 
   function renderMap3d() {
-    var graph = NQ.topo.build(NQ.model.all());
-    var key = graph.nodes.map(function (n) { return n.id + ':' + n.gwHops; }).join(',') + '|' +
-              graph.edges.map(function (e) { return e.a + '-' + e.b + ':' + e.best; }).join(',');
+    var graph = mapGraph();
+    var key = graphKey(graph);
     if (key !== lastGraphKey3d) { lastGraphKey3d = key; NQ.map3d.setGraph(graph); }
+    renderAntenna($('#m3-antenna'), graph);
   }
 
   /* ---------- boot ------------------------------------------------------ */
@@ -390,7 +476,12 @@
     renderConn();
     detectAddon().then(function () {
       if (cfg.autoconnect) connect();
-    });
+      return Promise.all([S.loadSettings(), S.loadLinks()]);
+    }).then(function () { dirty = true; });
+    /* Other browsers' edits and fresh link medians, once a minute. */
+    setInterval(function () {
+      Promise.all([S.loadSettings(), S.loadLinks()]).then(function () { dirty = true; });
+    }, 60000);
     show('map');
     if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
       navigator.serviceWorker.register('sw.js').catch(function () { /* offline is a bonus, not a requirement */ });
