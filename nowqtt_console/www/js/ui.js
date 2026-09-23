@@ -426,6 +426,19 @@
     $('#m3-spin').addEventListener('change', function (e) { NQ.map3d.setSpin(e.target.checked); });
     $('#m3-drops').addEventListener('change', function (e) { NQ.map3d.setDrops(e.target.checked); });
 
+    /* The legend rows hide and show that class of link, on both maps at once. */
+    $$('.maplegend button').forEach(function (b) {
+      b.setAttribute('aria-pressed', 'true');
+      b.addEventListener('click', function () {
+        var kind = b.getAttribute('data-edge');
+        var off = !NQ.map.isKindHidden(kind);
+        NQ.map.setHidden(kind, off);
+        $$('.maplegend button[data-edge="' + kind + '"]').forEach(function (x) {
+          x.setAttribute('aria-pressed', off ? 'false' : 'true');
+        });
+      });
+    });
+
     /* On a phone the map's tool panels start folded, so the map is what you
      * see first; the summary line opens them. */
     if (typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 760px)').matches) {

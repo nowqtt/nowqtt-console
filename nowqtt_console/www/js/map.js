@@ -47,6 +47,27 @@
     return 'var(--bad)';
   }
 
+  /* Which legend row an edge belongs to, so the legend can hide a class of
+   * link. Only visibility changes: a hidden edge still shapes the layout. */
+  function edgeKind(e) {
+    if (e.ends > 0) {
+      if (e.best >= -60) return 'strong';
+      if (e.best >= -72) return 'good';
+      if (e.best >= -82) return 'weak';
+      return 'bad';
+    }
+    return e.claim ? 'claim' : 'unknown';
+  }
+
+  var hidden = {};          /* edgeKind -> true, shared with the 3D map */
+  var onHidden = [];
+
+  function setHidden(kind, off) {
+    if (off) hidden[kind] = true; else delete hidden[kind];
+    draw();
+    onHidden.forEach(function (cb) { cb(); });
+  }
+
   function init(svgEl, selectCb) {
     svg = svgEl;
     onSelect = selectCb;
@@ -334,6 +355,8 @@
     parts.edges.forEach(function (p) {
       var a = sim.nodes[p.e.a], b = sim.nodes[p.e.b];
       if (!a || !b) return;
+      var off = hidden[edgeKind(p.e)] ? 'none' : '';
+      p.line.style.display = off; p.lbl.style.display = off;
       p.line.setAttribute('x1', a.x); p.line.setAttribute('y1', a.y);
       p.line.setAttribute('x2', b.x); p.line.setAttribute('y2', b.y);
       p.lbl.setAttribute('x', (a.x + b.x) / 2);
@@ -378,5 +401,10 @@
 
   NQ.map = { init: init, setGraph: setGraph, reheat: reheat, unpin: unpin,
              fit: fit, redraw: draw, edgeText: edgeText, rssiColor: rssiColor,
-             shortMac: shortMac, select: function (id) { sim.selected = id; draw(); } };
+             shortMac: shortMac, edgeKind: edgeKind,
+             isHidden: function (e) { return !!hidden[edgeKind(e)]; },
+             isKindHidden: function (k) { return !!hidden[k]; },
+             setHidden: setHidden,
+             onHiddenChange: function (cb) { onHidden.push(cb); },
+             select: function (id) { sim.selected = id; draw(); } };
 })(window.NQ = window.NQ || {});

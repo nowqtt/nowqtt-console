@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.2
+
+- **Hide a kind of link on the maps.** Click a row in the map legend to hide
+  or show those links, on the 2D and 3D maps together. Only the drawing
+  changes: hidden links still place the devices, so nothing moves. The
+  legend also gains the −60 … −72 dBm row it was missing.
+
 ## 0.5.1
 
 - **A board estimate is applied only if it survives leaving any one device

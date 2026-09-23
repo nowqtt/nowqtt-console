@@ -356,7 +356,7 @@
     var items = [];
     graph.edges.forEach(function (e) {
       var a = P[e.a], b = P[e.b];
-      if (!a || !b) return;
+      if (!a || !b || NQ.map.isHidden(e)) return;
       items.push({ z: (a.z + b.z) / 2 + 0.01, e: e, a: a, b: b });
     });
     graph.nodes.forEach(function (nd) {
@@ -666,6 +666,7 @@
     ctx = cv.getContext ? cv.getContext('2d') : null;
     readColors();
     if (NQ.theme) NQ.theme.onChange(function () { readColors(); monoCache = null; draw(); });
+    if (NQ.map.onHiddenChange) NQ.map.onHiddenChange(draw);
     wireInput();
     if (typeof ResizeObserver === 'function') {
       new ResizeObserver(function () { resize(); }).observe(cv);

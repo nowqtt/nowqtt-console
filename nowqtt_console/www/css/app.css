@@ -247,7 +247,12 @@ tbody tr:hover { background: var(--bg-2); }
   border-radius: var(--r); padding: 9px 11px; font-size: 11px;
   color: var(--fg-dim); backdrop-filter: blur(6px);
 }
-.maplegend div { display: flex; align-items: center; gap: 7px; margin: 3px 0; }
+.maplegend button { display: flex; align-items: center; gap: 7px; margin: 1px -5px;
+  padding: 2px 5px; width: calc(100% + 10px); background: none; border: 0;
+  border-radius: 4px; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.maplegend button:hover { background: color-mix(in srgb, var(--fg) 8%, transparent); }
+.maplegend button[aria-pressed="false"] { opacity: .4; }
+.maplegend button[aria-pressed="false"] .swatch { border-top-color: var(--fg-faint) !important; }
 .swatch { width: 22px; height: 0; border-top: 2px solid; }
 
 .nodelabel { font: 10.5px var(--mono); fill: var(--fg); paint-order: stroke;
