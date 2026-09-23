@@ -253,15 +253,11 @@
     var f = fit();
     if (!graph) { els.stress.textContent = ''; return; }
     if (!f) {
-      els.stress.textContent = 'No measured links yet, so nothing places the devices; ' +
-                               'what is drawn is only kept apart.';
+      els.stress.textContent = 'No measured links yet.';
       return;
     }
-    els.stress.textContent = f.n + ' measured link' + (f.n === 1 ? '' : 's') +
-      ' reproduced to within ' + Math.round(f.mean * 100) + ' % on average, worst ' +
-      Math.round(f.worst * 100) + ' %.' +
-      (f.worst > 0.3 ? ' Where it is large the measurements disagree with each ' +
-                        'other -- often one end hearing the other better than back.' : '');
+    els.stress.textContent = f.n + ' link' + (f.n === 1 ? '' : 's') + ' reproduced: ' +
+      'mean ' + Math.round(f.mean * 100) + ' %, worst ' + Math.round(f.worst * 100) + ' %';
   }
 
   /* ---------- camera ---------------------------------------------------- */

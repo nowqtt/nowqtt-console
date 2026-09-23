@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.6.1
+
+- **Ping button in the bottom-right corner** of both maps, with the result
+  right above it, so on a phone the tool panel can stay folded. It only
+  appears when a node is selected.
+- **No more ghost `0000…0000` device.** A sleeper the gateway hears itself
+  now hangs off the gateway. A sleeper that nobody claims gets no edge.
+- **Shorter map panels.** The explanations are gone; the numbers stay.
+
 ## 0.6.0
 
 - **Ping a node from the map.** Select a node on the 2D or 3D map and press

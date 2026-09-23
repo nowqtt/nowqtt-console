@@ -280,20 +280,17 @@
     var win = S.linksWindow();
     var measured = graph.edges.filter(function (e) { return e.ends > 0; });
     var avgd = measured.filter(function (e) { return e.samples > 1; }).length;
-    box.appendChild(h('div', { text: !win
-      ? 'RSSI: the latest report only. Averaging is done by the add-on.'
-      : avgd
-        ? 'RSSI: each link\'s median over up to ' + win + ' reports, kept by the add-on' +
-          (avgd < measured.length ? ' (' + avgd + ' of ' + measured.length + ' links so far)' : '') + '.'
-        : 'RSSI: the latest report; the add-on has not collected any history for these links yet.' }));
+    box.appendChild(h('div', { text: !win || !avgd
+      ? 'RSSI: latest report'
+      : 'RSSI: median of ≤' + win + ' reports' +
+        (avgd < measured.length ? ' (' + avgd + '/' + measured.length + ' links)' : '') }));
 
     var est = NQ.antenna.current().boards || {};
     var boards = S.boards();
     var manual = graph.nodes.map(function (n) { return n.id; })
       .filter(function (id) { return S.antenna(id); });
     if (!boards.length && !manual.length) {
-      box.appendChild(h('div', { style: 'margin-top:6px', text: 'No antenna corrections. Give ' +
-        'devices a board in Devices and each board\'s offset is estimated.' }));
+      box.appendChild(h('div', { class: 'faint', text: 'No antenna corrections' }));
       return;
     }
     box.appendChild(h('div', { style: 'margin-top:6px' }, [h('strong', { text: 'Antenna corrections' })]));
@@ -306,10 +303,6 @@
     manual.forEach(function (id) {
       box.appendChild(h('div', { class: 'mono', text: S.label(id) + ': ' + dB(S.antenna(id)) + ' (set by hand)' }));
     });
-    box.appendChild(h('div', { class: 'faint', style: 'margin-top:4px', text: 'Subtracted before ' +
-      'RSSI becomes distance; the dBm on the links is still what was measured. A board ' +
-      'estimate is used only if it holds when any one device is left out of the fit (its ±); ' +
-      'even then it tends to fall short of the real offset.' }));
   }
 
   /* ---------- ping ----------------------------------------------------- */
@@ -348,32 +341,22 @@
     var last = NQ.ping.last();
     var mine = last && selected && last.mac === selected.toLowerCase() ? last : null;
     $$('.pingbox').forEach(function (box) {
+      if (why && !pend) { box.setAttribute('hidden', ''); return; }
+      box.removeAttribute('hidden');
       var go = box.querySelector('.ping-go');
       var rep = box.querySelector('.ping-replay');
       var out = clear(box.querySelector('.ping-out'));
-      go.disabled = !!why || !!pend;
-      go.textContent = pend ? 'Pinging…' : 'Ping' + (selected && !why ? ' ' + pingName(selected) : '');
-      rep.disabled = !(mine && mine.ok);
-      if (why && !pend) { out.appendChild(h('div', { class: 'faint', text: why })); }
-      if (pend) { out.appendChild(h('div', { text: 'Waiting for ' + pingName(pend.mac) + '…' })); return; }
-      if (!mine) return;
-      if (!mine.ok) {
-        out.appendChild(h('div', { class: 'unk', text: 'No answer: ' + mine.err }));
-        return;
-      }
+      go.disabled = !!pend;
+      go.textContent = pend ? 'Pinging…' : 'Ping ' + pingName(selected);
+      rep.style.display = mine && mine.ok && !pend ? '' : 'none';
+      if (pend || !mine) return;
+      if (!mine.ok) { out.appendChild(h('div', { class: 'unk', text: 'No answer: ' + mine.err })); return; }
       var p = mine.path, lines = pingPath(p);
       out.appendChild(h('div', {}, [h('strong', { text: p.rttMs.toFixed(1) + ' ms' }),
-        p.tries > 1 ? ', ' + p.tries + ' tries' : ', first try']));
-      out.appendChild(h('div', { class: 'mono', text: 'out  ' + lines[0] }));
-      out.appendChild(h('div', { class: 'mono', text: 'back ' + lines[1] }));
-      if (p.rssi !== null) {
-        out.appendChild(h('div', { text: 'The gateway heard ' + pingName(p.back) + ' at ' + p.rssi + ' dBm.' }));
-      }
-      if (p.segs.some(function (s) { return !s.sure; })) {
-        out.appendChild(h('div', { class: 'faint', style: 'margin-top:4px', text: 'Dotted: the ' +
-          'gateway sees only its own neighbour on each side, so a relay-to-node hop is ' +
-          'assumed. A relay that went round through another node would look the same.' }));
-      }
+        (p.tries > 1 ? ' · ' + p.tries + ' tries' : '') +
+        (p.rssi !== null ? ' · ' + p.rssi + ' dBm' : '')]));
+      out.appendChild(h('div', { class: 'mono', text: '→ ' + lines[0] }));
+      out.appendChild(h('div', { class: 'mono', text: '← ' + lines[1] }));
     });
   }
 
@@ -418,13 +401,11 @@
       text: c.unknown + ' path' + (c.unknown === 1 ? '' : 's') + ' unknown' }));
     if (c.reporters <= 1) {
       m.appendChild(h('div', { class: 'unk', style: 'margin-top:6px',
-        text: 'Only the gateway reports its neighbours, so node-to-node links ' +
-              'are invisible. A node publishing its own topo fills this in ' +
-              '(plan §6 stage 5).' }));
+        text: 'Only the gateway reports neighbours.' }));
     }
     if (graph.alias.how === 'derived') {
       m.appendChild(h('div', { class: 'faint', style: 'margin-top:6px',
-        text: 'Gateway mesh MAC derived from its uid, not reported.' }));
+        text: 'Gateway MAC derived, not reported.' }));
     }
   }
 

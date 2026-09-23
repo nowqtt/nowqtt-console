@@ -161,8 +161,13 @@
         if (!l || !l.m) return;
         var lv = vertex(resolve(l.m), 'sleeper');
         if (lv) lv.gwHops = null;
-        if (l.relay) {
-          var e = edge(l.m, l.relay, 'leaf-claim');
+        /* An all-zero relay means no relay is known. With `direct` the
+         * gateway has heard the sleeper itself lately and answers it, so it
+         * hangs off the gateway; without, nobody claims it. Drawn as a
+         * vertex it was a ghost device `0000…0000`. */
+        var relay = /^0+$/.test(String(l.relay || '')) ? (l.direct ? gwId : null) : l.relay;
+        if (relay) {
+          var e = edge(l.m, relay, 'leaf-claim');
           if (e) {
             /* A claim is evidence of reachability, not a measurement. The
              * relay told the gateway it can answer this leaf; neither end

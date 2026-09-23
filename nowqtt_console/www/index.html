@@ -45,18 +45,6 @@
           <button class="btn sm" id="map-unpin">Unpin</button>
           <button class="btn sm" id="map-fit">Fit</button>
         </div>
-        <p class="note" style="margin:9px 0 0">
-          Edge length follows RSSI, so strong links sit close. Drag a node to
-          put it where it physically is; it stays pinned.
-        </p>
-        <hr style="border:0;border-top:1px solid var(--line);margin:10px 0">
-        <div class="pingbox">
-          <div class="row" style="gap:6px">
-            <button class="btn sm ping-go">Ping</button>
-            <button class="btn sm ping-replay">Replay</button>
-          </div>
-          <div class="note ping-out" style="margin-top:7px"></div>
-        </div>
         <hr style="border:0;border-top:1px solid var(--line);margin:10px 0">
         <label class="inline"><input type="checkbox" id="map-metres"> show estimated metres</label>
         <div id="map-model" style="display:none;margin-top:7px">
@@ -66,17 +54,20 @@
             <label class="field" style="flex:1">n
               <input id="map-n" type="number" step="0.1" style="width:100%"></label>
           </div>
-          <p class="note" style="margin:7px 0 0">
-            Log-distance path loss. Indoors this is an <strong>estimate</strong>,
-            not a measurement — one wall changes n, and antenna orientation
-            alone moves RSSI 10 dB.
-          </p>
         </div>
         <hr style="border:0;border-top:1px solid var(--line);margin:10px 0">
         <div class="note" id="map-coverage"></div>
         <hr style="border:0;border-top:1px solid var(--line);margin:10px 0">
         <div class="note" id="map-antenna"></div>
       </details>
+
+      <div class="pingbox" hidden>
+        <div class="note ping-out"></div>
+        <div class="row" style="gap:6px;justify-content:flex-end">
+          <button class="btn sm ping-replay">Replay</button>
+          <button class="btn primary ping-go">Ping</button>
+        </div>
+      </div>
 
       <div class="maplegend" title="Click a row to show or hide those links">
         <button type="button" data-edge="strong"><i class="swatch" style="border-color:var(--accent)"></i> ≥ −60 dBm</button>
@@ -102,31 +93,19 @@
         </div>
         <label class="inline" style="margin-top:9px"><input type="checkbox" id="m3-spin"> rotate slowly</label>
         <label class="inline" style="margin-top:5px"><input type="checkbox" id="m3-drops" checked> height lines to the floor</label>
-        <p class="note maphint">
-          Each device sits where the measured links put it: the distance
-          between two ends follows their RSSI, less any antenna correction,
-          and a pair nobody measured is only kept from overlapping. The rings on the floor are −50, −70 and
-          −90 dBm from the gateway. Height means nothing on its own — it is
-          the third axis the distances needed.
-        </p>
-        <p class="note maphint">
-          <kbd>drag</kbd> rotate · <kbd>right-drag</kbd> or <kbd>shift</kbd> pan ·
-          <kbd>wheel</kbd> zoom · one finger rotates, two pan and pinch ·
-          double-tap resets
-        </p>
-        <hr style="border:0;border-top:1px solid var(--line);margin:10px 0">
-        <div class="pingbox">
-          <div class="row" style="gap:6px">
-            <button class="btn sm ping-go">Ping</button>
-            <button class="btn sm ping-replay">Replay</button>
-          </div>
-          <div class="note ping-out" style="margin-top:7px"></div>
-        </div>
         <hr style="border:0;border-top:1px solid var(--line);margin:10px 0">
         <div class="note" id="m3-stress"></div>
         <hr style="border:0;border-top:1px solid var(--line);margin:10px 0">
         <div class="note" id="m3-antenna"></div>
       </details>
+
+      <div class="pingbox" hidden>
+        <div class="note ping-out"></div>
+        <div class="row" style="gap:6px;justify-content:flex-end">
+          <button class="btn sm ping-replay">Replay</button>
+          <button class="btn primary ping-go">Ping</button>
+        </div>
+      </div>
 
       <div class="maplegend" title="Click a row to show or hide those links">
         <button type="button" data-edge="strong"><i class="swatch" style="border-color:var(--accent)"></i> ≥ −60 dBm</button>
