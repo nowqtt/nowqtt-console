@@ -50,6 +50,14 @@
           put it where it physically is; it stays pinned.
         </p>
         <hr style="border:0;border-top:1px solid var(--line);margin:10px 0">
+        <div class="pingbox">
+          <div class="row" style="gap:6px">
+            <button class="btn sm ping-go">Ping</button>
+            <button class="btn sm ping-replay">Replay</button>
+          </div>
+          <div class="note ping-out" style="margin-top:7px"></div>
+        </div>
+        <hr style="border:0;border-top:1px solid var(--line);margin:10px 0">
         <label class="inline"><input type="checkbox" id="map-metres"> show estimated metres</label>
         <div id="map-model" style="display:none;margin-top:7px">
           <div class="row" style="gap:6px">
@@ -106,6 +114,14 @@
           <kbd>wheel</kbd> zoom · one finger rotates, two pan and pinch ·
           double-tap resets
         </p>
+        <hr style="border:0;border-top:1px solid var(--line);margin:10px 0">
+        <div class="pingbox">
+          <div class="row" style="gap:6px">
+            <button class="btn sm ping-go">Ping</button>
+            <button class="btn sm ping-replay">Replay</button>
+          </div>
+          <div class="note ping-out" style="margin-top:7px"></div>
+        </div>
         <hr style="border:0;border-top:1px solid var(--line);margin:10px 0">
         <div class="note" id="m3-stress"></div>
         <hr style="border:0;border-top:1px solid var(--line);margin:10px 0">
@@ -410,6 +426,7 @@
 <script src="js/config.js"></script>
 <script src="js/netcfg.js"></script>
 <script src="js/history.js"></script>
+<script src="js/ping.js"></script>
 <script src="js/map.js"></script>
 <script src="js/map3d.js"></script>
 <script src="js/ui.js"></script>

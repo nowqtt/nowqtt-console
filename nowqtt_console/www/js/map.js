@@ -30,7 +30,7 @@
     selected: null
   };
 
-  var svg, gRoot, gEdges, gNodes, gLabels, elLegend;
+  var svg, gRoot, gEdges, gTrace, gNodes, gLabels, gDot;
   var onSelect = null;
 
   function el(name, attrs) {
@@ -72,8 +72,9 @@
     svg = svgEl;
     onSelect = selectCb;
     gRoot = el('g');
-    gEdges = el('g'); gNodes = el('g'); gLabels = el('g');
-    gRoot.appendChild(gEdges); gRoot.appendChild(gNodes); gRoot.appendChild(gLabels);
+    gEdges = el('g'); gTrace = el('g'); gNodes = el('g'); gLabels = el('g'); gDot = el('g');
+    gRoot.appendChild(gEdges); gRoot.appendChild(gTrace); gRoot.appendChild(gNodes);
+    gRoot.appendChild(gLabels); gRoot.appendChild(gDot);
     svg.appendChild(gRoot);
 
     /* Pan, zoom and node dragging. A person moving a node to match where it
@@ -378,6 +379,71 @@
     });
   }
 
+  /* ---------- a ping's path, replayed ---------------------------------- */
+
+  /* The real round trip takes milliseconds; this is it slowed down to be
+   * watched, out in one colour and back in another, each on its own side of
+   * the link so a path that returns the way it went is still two lanes. A hop
+   * the gateway did not see for itself is dotted. See ping.js. */
+  var trace = null;
+
+  function traceStop() {
+    trace = null;
+    gTrace.textContent = ''; gDot.textContent = '';
+  }
+
+  function traceStart(p) {
+    traceStop();
+    var t = { p: p, t0: Date.now(), lines: [], dot: null };
+    p.segs.forEach(function (sg) {
+      var line = el('line', {
+        'stroke': sg.dir === 'out' ? 'var(--accent-2)' : 'var(--accent)',
+        'stroke-width': 3, 'stroke-linecap': 'round',
+        'stroke-dasharray': sg.sure ? '' : '1 6'
+      });
+      gTrace.appendChild(line);
+      t.lines.push(line);
+    });
+    t.dot = el('circle', { r: 6, stroke: 'var(--bg)', 'stroke-width': 2 });
+    gDot.appendChild(t.dot);
+    trace = t;
+    requestAnimationFrame(function loop() {
+      if (trace !== t) return;
+      var st = NQ.ping.at(t.p, Date.now() - t.t0);
+      if (!st) { traceStop(); return; }
+      drawTrace(t, st);
+      requestAnimationFrame(loop);
+    });
+  }
+
+  /* A point `frac` along a→b, moved 3.5 px to the left of the direction of
+   * travel. */
+  function lane(a, b, frac) {
+    var dx = b.x - a.x, dy = b.y - a.y;
+    var d = Math.sqrt(dx * dx + dy * dy) || 1;
+    return { x: a.x + dx * frac + (dy / d) * 3.5, y: a.y + dy * frac - (dx / d) * 3.5 };
+  }
+
+  function drawTrace(t, st) {
+    gTrace.setAttribute('opacity', st.alpha);
+    gDot.setAttribute('opacity', st.alpha);
+    st.shown.forEach(function (sh, i) {
+      var line = t.lines[i];
+      var a = sim.nodes[sh.seg.a], b = sim.nodes[sh.seg.b];
+      if (!a || !b || sh.frac <= 0) { line.style.display = 'none'; return; }
+      var p0 = lane(a, b, 0), p1 = lane(a, b, sh.frac);
+      line.style.display = '';
+      line.setAttribute('x1', p0.x); line.setAttribute('y1', p0.y);
+      line.setAttribute('x2', p1.x); line.setAttribute('y2', p1.y);
+    });
+    var a = st.dot && sim.nodes[st.dot.seg.a], b = st.dot && sim.nodes[st.dot.seg.b];
+    if (!a || !b) { t.dot.style.display = 'none'; return; }
+    var q = lane(a, b, st.dot.frac);
+    t.dot.style.display = '';
+    t.dot.setAttribute('cx', q.x); t.dot.setAttribute('cy', q.y);
+    t.dot.setAttribute('fill', st.dot.seg.dir === 'out' ? 'var(--accent-2)' : 'var(--accent)');
+  }
+
   function reheat() { sim.alpha = 0.6; kick(); }
 
   function unpin() {
@@ -406,5 +472,6 @@
              isKindHidden: function (k) { return !!hidden[k]; },
              setHidden: setHidden,
              onHiddenChange: function (cb) { onHidden.push(cb); },
+             trace: traceStart, traceStop: traceStop,
              select: function (id) { sim.selected = id; draw(); } };
 })(window.NQ = window.NQ || {});

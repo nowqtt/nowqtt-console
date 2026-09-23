@@ -370,7 +370,42 @@
       if (it.e) drawEdge(it, fade(it.z), focus);
       else drawNode(it, fade(it.z), focus);
     });
+    drawTrace(P);
     ctx.globalAlpha = 1;
+  }
+
+  /* A ping's path, replayed on top of everything; see map.js traceStart(). */
+  var trace = null;
+
+  function drawTrace(P) {
+    if (!trace) return;
+    var st = NQ.ping.at(trace.p, Date.now() - trace.t0);
+    if (!st) { trace = null; return; }
+    function lane(a, b, frac) {
+      var dx = b.x - a.x, dy = b.y - a.y;
+      var d = Math.sqrt(dx * dx + dy * dy) || 1;
+      return { x: a.x + dx * frac + (dy / d) * 3.5, y: a.y + dy * frac - (dx / d) * 3.5 };
+    }
+    ctx.lineCap = 'round';
+    st.shown.forEach(function (sh) {
+      var a = P[sh.seg.a], b = P[sh.seg.b];
+      if (!a || !b || sh.frac <= 0) return;
+      var p0 = lane(a, b, 0), p1 = lane(a, b, sh.frac);
+      ctx.globalAlpha = st.alpha;
+      ctx.strokeStyle = sh.seg.dir === 'out' ? colors['accent-2'] : colors.accent;
+      ctx.lineWidth = 3;
+      ctx.setLineDash(sh.seg.sure ? [] : [1, 6]);
+      ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y); ctx.stroke();
+    });
+    ctx.setLineDash([]);
+    var a = st.dot && P[st.dot.seg.a], b = st.dot && P[st.dot.seg.b];
+    if (!a || !b) return;
+    var q = lane(a, b, st.dot.frac);
+    ctx.globalAlpha = st.alpha;
+    ctx.fillStyle = st.dot.seg.dir === 'out' ? colors['accent-2'] : colors.accent;
+    ctx.strokeStyle = colors.bg;
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(q.x, q.y, 6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
   }
 
   function drawFloor() {
@@ -526,7 +561,7 @@
     }
     if (spin && !interacting) cam.yaw += 0.0035;
     draw();
-    if (settle > 0 || (spin && !interacting)) wake();
+    if (settle > 0 || (spin && !interacting) || trace) wake();
   }
 
   /* ---------- input: mouse, pen and touch as one set of pointers --------- */
@@ -695,6 +730,8 @@
     setSpin: function (on) { spin = !!on; wake(); },
     setDrops: function (on) { drops = !!on; draw(); },
     select: function (id) { selected = id; draw(); },
+    trace: function (p) { trace = { p: p, t0: Date.now() }; wake(); },
+    traceStop: function () { trace = null; draw(); },
     /* for the tests: the layout without a canvas */
     _layout: function () { return { pos: pos, order: order, fit: fit() }; },
     _settle: function () { while (settle > 0) { iterate(); settle--; } }

@@ -118,6 +118,7 @@
     var text = NQ.broker.asText(payload);
     NQ.model.ingest(topic, text);
     NQ.ota.onMessage(topic, text);
+    NQ.ping.onMessage(topic, text);
     pushFeed(topic, text, false);
     dirty = true;
   });
@@ -136,6 +137,7 @@
 
   function schedule() {
     setInterval(function () {
+      NQ.ping.tick();
       /* The Network tab counts its windows down between status publishes. */
       if (!dirty && view !== 'network') { renderConn(); return; }
       dirty = false;
@@ -310,11 +312,98 @@
       'even then it tends to fall short of the real offset.' }));
   }
 
+  /* ---------- ping ----------------------------------------------------- */
+
+  function pingName(id) {
+    var gw = NQ.model.gwUid();
+    if (id && gw && id.toLowerCase() === gw.toLowerCase()) return 'gateway';
+    return NQ.store.shownName(id) || NQ.map.shortMac(id);
+  }
+
+  /* Why the selected device cannot be pinged, or '' if it can. */
+  function pingBlocked() {
+    if (!selected) return 'Select a device on the map to ping it.';
+    var d = NQ.model.all()[selected];
+    if (d && d.kind === 'gateway') return 'A ping starts at the gateway; select a node.';
+    if (d && d.kind === 'sleeper') return 'A sleeper is awake for milliseconds and holds no route, so it cannot be pinged.';
+    if (NQ.broker.state() !== 'up') return 'Not connected to the broker.';
+    return '';
+  }
+
+  function pingPath(p) {
+    var seq = function (dir) {
+      var ids = [];
+      p.segs.filter(function (s) { return s.dir === dir; }).forEach(function (s, i) {
+        if (i === 0) ids.push(s.a);
+        ids.push(s.b);
+      });
+      return ids.map(pingName).join(' → ');
+    };
+    return [seq('out'), seq('back')];
+  }
+
+  function renderPing() {
+    var why = pingBlocked();
+    var pend = NQ.ping.pending();
+    var last = NQ.ping.last();
+    var mine = last && selected && last.mac === selected.toLowerCase() ? last : null;
+    $$('.pingbox').forEach(function (box) {
+      var go = box.querySelector('.ping-go');
+      var rep = box.querySelector('.ping-replay');
+      var out = clear(box.querySelector('.ping-out'));
+      go.disabled = !!why || !!pend;
+      go.textContent = pend ? 'Pinging…' : 'Ping' + (selected && !why ? ' ' + pingName(selected) : '');
+      rep.disabled = !(mine && mine.ok);
+      if (why && !pend) { out.appendChild(h('div', { class: 'faint', text: why })); }
+      if (pend) { out.appendChild(h('div', { text: 'Waiting for ' + pingName(pend.mac) + '…' })); return; }
+      if (!mine) return;
+      if (!mine.ok) {
+        out.appendChild(h('div', { class: 'unk', text: 'No answer: ' + mine.err }));
+        return;
+      }
+      var p = mine.path, lines = pingPath(p);
+      out.appendChild(h('div', {}, [h('strong', { text: p.rttMs.toFixed(1) + ' ms' }),
+        p.tries > 1 ? ', ' + p.tries + ' tries' : ', first try']));
+      out.appendChild(h('div', { class: 'mono', text: 'out  ' + lines[0] }));
+      out.appendChild(h('div', { class: 'mono', text: 'back ' + lines[1] }));
+      if (p.rssi !== null) {
+        out.appendChild(h('div', { text: 'The gateway heard ' + pingName(p.back) + ' at ' + p.rssi + ' dBm.' }));
+      }
+      if (p.segs.some(function (s) { return !s.sure; })) {
+        out.appendChild(h('div', { class: 'faint', style: 'margin-top:4px', text: 'Dotted: the ' +
+          'gateway sees only its own neighbour on each side, so a relay-to-node hop is ' +
+          'assumed. A relay that went round through another node would look the same.' }));
+      }
+    });
+  }
+
+  function pingSelected() {
+    if (pingBlocked()) return;
+    NQ.ping.start(selected, cfg.prefix, NQ.model.gwUid() || cfg.uid, function (topic, json) {
+      NQ.broker.publish(topic, json, { qos: 1, retain: false });
+    });
+    dirty = true;
+    renderPing();
+  }
+
+  function replayPing() {
+    var last = NQ.ping.last();
+    if (!last || !last.ok) return;
+    NQ.map.trace(last.path);
+    NQ.map3d.trace(last.path);
+  }
+
+  NQ.ping.onResult(function (r) {
+    if (r.ok) { NQ.map.trace(r.path); NQ.map3d.trace(r.path); }
+    dirty = true;
+  });
+
   function renderMap() {
     var graph = mapGraph();
     var key = graphKey(graph);
     if (key !== lastGraphKey) { lastGraphKey = key; NQ.map.setGraph(graph); }
     renderAntenna($('#map-antenna'), graph);
+    renderPing();
 
     var c = graph.coverage;
     var m = $('#map-coverage');
@@ -346,6 +435,7 @@
     var key = graphKey(graph);
     if (key !== lastGraphKey3d) { lastGraphKey3d = key; NQ.map3d.setGraph(graph); }
     renderAntenna($('#m3-antenna'), graph);
+    renderPing();
   }
 
   /* ---------- boot ------------------------------------------------------ */
@@ -412,6 +502,7 @@
     /* map */
     NQ.map.init($('#mapsvg'), function (id) {
       selected = id;
+      dirty = true;
       NQ.map.select(id);
       NQ.map3d.select(id);
     });
@@ -419,8 +510,10 @@
     /* 3d map */
     NQ.map3d.init($('#map3d'), {
       stress: $('#m3-stress'),
-      onSelect: function (id) { selected = id; NQ.map.select(id); NQ.map3d.select(id); }
+      onSelect: function (id) { selected = id; dirty = true; NQ.map.select(id); NQ.map3d.select(id); }
     });
+    $$('.pingbox .ping-go').forEach(function (b) { b.addEventListener('click', pingSelected); });
+    $$('.pingbox .ping-replay').forEach(function (b) { b.addEventListener('click', replayPing); });
     $('#m3-relayout').addEventListener('click', function () { NQ.map3d.relayout(); });
     $('#m3-reset').addEventListener('click', function () { NQ.map3d.resetView(); });
     $('#m3-spin').addEventListener('change', function (e) { NQ.map3d.setSpin(e.target.checked); });

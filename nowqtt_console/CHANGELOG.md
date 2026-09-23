@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.6.0
+
+- **Ping a node from the map.** Select a node on the 2D or 3D map and press
+  **Ping**. The gateway sends it one confirmed frame. The map then replays the
+  trip slowly, out in one colour and back in another, along the neighbours
+  the frame really went through, which are not always the same both ways.
+  The panel gives the round trip, the tries and the RSSI of the last hop.
+  The gateway only sees its own neighbour on each side, so a relay-to-node
+  hop is drawn dotted and called assumed. Needs gateway firmware with
+  `bridge/ping`; sleepers cannot be pinged.
+
 ## 0.5.2
 
 - **Hide a kind of link on the maps.** Click a row in the map legend to hide
