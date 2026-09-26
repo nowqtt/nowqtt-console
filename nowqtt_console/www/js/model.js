@@ -94,7 +94,8 @@
       gw: null,
       firstSeen: 0,
       lastSeen: 0,
-      online: null,
+      online: null,        /* the gateway's dev/<mac>/status; null until heard */
+      statusTs: 0,
       build: null,
       topics: {},          /* name -> { raw, ts, json } */
       series: {},          /* path -> { v, ts, hist: [{t,v}] } */
@@ -183,7 +184,7 @@
    * to. Anything that does not match that shape is counted and dropped
    * rather than guessed at. */
 
-  function ingest(topic, text, ts) {
+  function ingest(topic, text, ts, retained) {
     ts = ts || (Date.now() / 1000);
     stats.messages++;
     stats.bytes += (text ? text.length : 0);
@@ -261,6 +262,19 @@
       return { id: uid, kind: 'gateway' };
     }
 
+    /* The gateway's verdict on a device: `online` on its first frame,
+     * `offline` after the descriptor's expire_after (15 min) without one,
+     * retained. Not a frame *from* the device, so it does not count as seeing
+     * it; an empty payload is the gateway forgetting it. */
+    if (head === 'dev' && rest.length === 3 && rest[2] === 'status') {
+      if (text !== 'online' && text !== 'offline') return null;
+      var sd = device(rest[1]);
+      sd.gw = uid;
+      sd.online = (text === 'online');
+      sd.statusTs = ts;
+      return { id: rest[1], kind: sd.kind, name: 'status' };
+    }
+
     if (head === 'dev' && rest.length >= 3) {
       var mac = rest[1];
       var dir = rest[2];                 /* 't' uplink, 'set' downlink */
@@ -268,7 +282,11 @@
       if (dir === 'set') return { id: mac, kind: 'set', name: name };
 
       var d = device(mac);
-      d.gw = uid; touch(d, ts);
+      d.gw = uid;
+      /* A retained message is the broker's memory, not the device speaking:
+       * a node unplugged days ago still delivers its name, config and topo on
+       * every connect. Counted as seen, it looked alive on every page load. */
+      if (!retained) touch(d, ts);
 
       var body = parseJson(text);
       /* A sleeper's report moved from `report` to `state` when it became its
@@ -338,6 +356,18 @@
     stats = { messages: 0, bytes: 0, firstTs: 0, lastTs: 0 };
   }
 
+  /* Whether to treat a device as gone. The gateway's `offline` wins until the
+   * device is heard again; a device never heard live and never declared
+   * online is only the broker's leftovers (a decommissioned node, an unplugged
+   * one after its status expired). The gateway itself has its own last will
+   * and is never hidden. */
+  function offline(d) {
+    if (!d || d.kind === 'gateway') return false;
+    if (d.online === false) return !(d.lastSeen > d.statusTs);
+    if (d.online === null) return !d.lastSeen;
+    return false;
+  }
+
   function list() {
     var order = { gateway: 0, node: 1, sleeper: 2, unknown: 3 };
     return Object.keys(devices).map(function (k) { return devices[k]; })
@@ -358,6 +388,7 @@
     stats: function () { return stats; },
     delivery: delivery,
     heapSlope: heapSlope,
+    offline: offline,
     /* exported for the host tests */
     flatten: flatten,
     slope: slope,

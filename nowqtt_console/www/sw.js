@@ -13,7 +13,7 @@
  * It does not touch MQTT. A WebSocket is not a fetch, so nothing here is
  * between the console and the broker. */
 
-var CACHE = 'nowqtt-console-v2.7';
+var CACHE = 'nowqtt-console-v2.8';
 var FILES = [
   'index.html',
   'css/app.css',

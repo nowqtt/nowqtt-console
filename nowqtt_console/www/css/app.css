@@ -215,6 +215,8 @@ tbody tr:hover { background: var(--bg-2); }
 .dev .name { font-weight: 550; }
 .dev .meta { font: 10.5px var(--mono); color: var(--fg-faint); }
 .dev .right { text-align: right; font: 10.5px var(--mono); color: var(--fg-dim); }
+.dev.off { opacity: .5; }
+.dev.off:hover, .dev.off.sel { opacity: .8; }
 .kindmark { width: 8px; height: 8px; border-radius: 2px; }
 .kind-gateway  { background: var(--accent-2); border-radius: 50%; }
 .kind-node     { background: var(--accent); }

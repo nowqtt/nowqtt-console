@@ -54,11 +54,17 @@
                              : 'Not connected.' }));
       return;
     }
+    /* Offline devices after the live ones, dimmed and saying so: still
+     * selectable, because what they said last is how you find out why. */
+    var off = NQ.model.offline;
+    list = list.filter(function (d) { return !off(d); })
+               .concat(list.filter(function (d) { return off(d); }));
     list.forEach(function (d) {
       var del = NQ.model.delivery(d);
       var sel = d.id === U.selected();
+      var gone = off(d);
       box.appendChild(h('div', {
-        class: 'dev' + (sel ? ' sel' : ''),
+        class: 'dev' + (sel ? ' sel' : '') + (gone ? ' off' : ''),
         onclick: function () {
           U.select(d.id); NQ.map.select(d.id); NQ.map3d.select(d.id);
           /* On a phone the list gives way to the detail; see .split.open. */
@@ -72,7 +78,9 @@
           h('div', { class: 'meta', text: d.kind + (d.build ? ' · ' + d.build : '') })
         ]),
         h('div', { class: 'right' }, [
-          h('div', { text: ago(d.lastSeen) }),
+          h('div', { class: gone ? 'badc' : '',
+                     text: gone ? 'offline' + (d.lastSeen ? ' · ' + ago(d.lastSeen) : '')
+                                : ago(d.lastSeen) }),
           h('div', { class: del && del.ratio < 0.99 ? 'warnc' : 'faint',
                      text: del ? (del.ratio * 100).toFixed(1) + '%' : '' })
         ])
@@ -147,7 +155,8 @@
       h('h2', {}, [
         h('i', { class: 'kindmark kind-' + d.kind }),
         document.createTextNode(d.id),
-        h('span', { class: 'sub', text: d.kind + (d.build ? ' · build ' + d.build : '') +
+        h('span', { class: 'sub', text: (NQ.model.offline(d) ? 'OFFLINE · ' : '') +
+                                        d.kind + (d.build ? ' · build ' + d.build : '') +
                                         ' · seen ' + ago(d.lastSeen) })
       ]),
       h('div', { class: 'body' }, [

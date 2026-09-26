@@ -114,9 +114,9 @@
     dirty = true;
   });
 
-  NQ.broker.on('message', function (topic, payload) {
+  NQ.broker.on('message', function (topic, payload, packet) {
     var text = NQ.broker.asText(payload);
-    NQ.model.ingest(topic, text);
+    NQ.model.ingest(topic, text, undefined, !!(packet && packet.retain));
     NQ.ota.onMessage(topic, text);
     NQ.ping.onMessage(topic, text);
     pushFeed(topic, text, false);
@@ -148,7 +148,7 @@
 
   function render() {
     $('#badge-dev').textContent = NQ.model.list().filter(function (d) {
-      return d.kind !== 'unknown';
+      return d.kind !== 'unknown' && !NQ.model.offline(d);
     }).length;
     if (view === 'map') renderMap();
     else if (view === 'map3d') renderMap3d();
@@ -257,9 +257,13 @@
 
   function mapGraph() {
     var devs = NQ.model.all();
-    maybeEstimate(NQ.topo.build(devs, { avg: S.linkAvg }));
+    /* Offline devices are left off the map: their links are the last thing
+     * anyone measured, and drawn they read as a network that is not there. */
+    var gone = function (id) { return NQ.model.offline(devs[id]); };
+    maybeEstimate(NQ.topo.build(devs, { avg: S.linkAvg, gone: gone }));
     return NQ.topo.build(devs, {
       avg: S.linkAvg,
+      gone: gone,
       antenna: function (id) { return NQ.antenna.offset(id, antInfo); }
     });
   }

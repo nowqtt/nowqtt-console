@@ -82,8 +82,15 @@
     var nodes = {};
     var edges = {};
 
+    /* A device the caller calls gone (offline, see model.offline) gets no
+     * vertex and no edge: not its own, and not the ones its neighbours still
+     * list until their peer entries age out. */
+    function gone(id) {
+      return !!(opts.gone && id && id !== gwId && opts.gone(id));
+    }
+
     function vertex(id, kind) {
-      if (!id) return null;
+      if (!id || gone(id)) return null;
       if (!nodes[id]) {
         nodes[id] = { id: id, kind: kind || 'unknown', gwHops: null,
                       build: null, lastSeen: 0, known: false };
@@ -98,6 +105,7 @@
       var d = devices[id];
       if (d.kind === 'set' || d.kind === 'ota') continue;
       var v = vertex(d.id, d.kind);
+      if (!v) continue;
       v.known = true;
       v.build = d.build || null;
       v.lastSeen = d.lastSeen || 0;
@@ -111,7 +119,7 @@
 
     function edge(a, b, ev) {
       a = resolve(a); b = resolve(b);
-      if (!a || !b || a === b) return null;
+      if (!a || !b || a === b || gone(a) || gone(b)) return null;
       vertex(a); vertex(b);
       var key = pairKey(a, b);
       var e = edges[key];
@@ -129,6 +137,7 @@
       var dev = devices[did];
       if (!Array.isArray(dev.peers)) continue;
       var from = resolve(dev.id);
+      if (gone(from)) continue;
       for (var i = 0; i < dev.peers.length; i++) {
         var p = dev.peers[i];
         if (!p || !p.m) continue;
@@ -158,7 +167,7 @@
 
     if (gwDev && Array.isArray(gwDev.leaves)) {
       gwDev.leaves.forEach(function (l) {
-        if (!l || !l.m) return;
+        if (!l || !l.m || gone(resolve(l.m))) return;
         var lv = vertex(resolve(l.m), 'sleeper');
         if (lv) lv.gwHops = null;
         /* An all-zero relay means no relay is known. With `direct` the

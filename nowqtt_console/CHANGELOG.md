@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.6.2
+
+- **Offline devices are marked, and left off the map.** The console now reads
+  the gateway's availability (`dev/<mac>/status`): a device the gateway has
+  given up on is listed last, dimmed and labelled *offline*, and the 2D and
+  3D maps no longer draw it or any link to it. It comes back the moment it
+  sends a frame.
+- **Retained messages no longer count as a device being seen.** An unplugged
+  device's name, config and topology stay on the broker and arrive on every
+  page load, which made it look alive with "seen now". *Seen* is now the last
+  frame the device actually sent.
+- The device count in the tab only counts devices that are online.
+
 ## 0.6.1
 
 - **Ping button in the bottom-right corner** of both maps, with the result
